@@ -347,16 +347,24 @@ def create_fresh_draft(source_message_id: str, body: str,
     creds = authorize(interactive=False)
     svc = _service(creds)
 
+    me = svc.users().getProfile(userId="me").execute().get("emailAddress", "")
     src = (
         svc.users()
         .messages()
         .get(userId="me", id=source_message_id, format="metadata",
-             metadataHeaders=["From", "Reply-To"])
+             metadataHeaders=["From", "Reply-To", "To"])
         .execute()
     )
     headers = src.get("payload", {}).get("headers", [])
     sender = _header(headers, "Reply-To") or _header(headers, "From")
     to = [a for _, a in getaddresses([sender]) if _deliverable(a)]
+    # A message the user SENT is as safe an anchor as one they received —
+    # they typed that address themselves. Without this, a person first
+    # contacted by the user (a LinkedIn conversation moved to email, say)
+    # could never be drafted to until they replied.
+    if to and me and to[0].lower() == me.lower():
+        to = [a for _, a in getaddresses([_header(headers, "To")])
+              if _deliverable(a) and a.lower() != me.lower()]
     if not to:
         raise DraftError("Source message has no usable address.")
 

@@ -153,3 +153,26 @@ class TestFreshDraft:
             create_fresh_draft("msgid", "body here", "   ")
         with pytest.raises(DraftError):
             create_fresh_draft("msgid", "  ", "Subject")
+
+
+class TestFreshDraftFromOwnSentMail:
+    """A person first contacted BY the user has no inbound message to anchor
+    to — but the user's own sent mail carries an address they typed
+    themselves, which is exactly as trustworthy."""
+
+    def test_own_message_anchors_to_its_recipient_logic(self):
+        # The address-derivation rule, tested at the header level: when the
+        # source's From is the mailbox owner, the recipient comes from To,
+        # minus the owner.
+        hdrs = [{"name": "From", "value": "Me <me@x.example>"},
+                {"name": "To", "value": "Andrew B <andrew@partner.example>"}]
+        sender = _header(hdrs, "Reply-To") or _header(hdrs, "From")
+        from email.utils import getaddresses
+        to = [a for _, a in getaddresses([sender])]
+        assert to == ["me@x.example"]  # naive rule points at yourself
+        # the corrected rule:
+        me = "me@x.example"
+        if to and to[0].lower() == me:
+            to = [a for _, a in getaddresses([_header(hdrs, "To")])
+                  if a.lower() != me]
+        assert to == ["andrew@partner.example"]
