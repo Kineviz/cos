@@ -1,0 +1,40 @@
+[project]
+name = "cos"
+version = "0.2.0"
+description = "COS, the Chief-of-staff Operation System: a private chief of staff over your own mail, calendar and notes"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+    "click>=8.1",
+    "rich>=13.7",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+cos = "cos.cli:main"
+# Transitional alias. Wei's launchd jobs, Hermes config and muscle memory all
+# say `kiran`; this keeps them working while the new name beds in. Drop it once
+# his machine has run a week clean — new installs should never learn it.
+kiran = "cos.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+# Only needed for the Gmail API mail source. A local-mirror install pulls
+# nothing from Google, which is the point — see src/kiran/mailsource.py.
+clock = [
+    "mcp>=1.2,<2",   # 2.0 dropped the decorator API this server is built on
+]
+gmail = [
+    "google-auth-oauthlib>=1.2",
+    "google-api-python-client>=2.130",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cos"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

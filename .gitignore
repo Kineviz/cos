@@ -1,0 +1,30 @@
+.DS_Store
+
+# Secrets — never commit
+.env
+.env.local
+*.key
+# Google OAuth. These live in ~/.config/kiran (mode 600) and should never be
+# inside the repo, but a stray download into the working tree must not slip
+# through: oauth_client.json identifies the app, token.json IS the mailbox grant.
+oauth_client.json
+token.json
+client_secret*.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Derived / rebuildable state (spec §4.5)
+pgdata/
+*.log
+.kiran_state/
+data/
+
+# Private per-install data. Examples ship; the real files stay on your machine.
+config/deal_domains.yaml

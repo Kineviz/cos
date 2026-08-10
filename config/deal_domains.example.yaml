@@ -1,0 +1,20 @@
+# Deal name -> email domains.
+#
+# Copy to deal_domains.yaml and fill in your own. The names on the left must
+# match your Pipeline.md / Prospects.md rows (or your prospects panel) exactly.
+#
+# This file is maintained by hand on purpose: it is the join between what YOU
+# call a deal and what your mailbox sees, and no model should guess it. Deals
+# with an empty list are reported as unmapped, never silently dropped.
+#
+# deal_domains.yaml is gitignored — your pipeline is not for the repo.
+
+deals:
+  "Northwind Analytics":
+    - northwind.example
+
+  "Acme Dynamics":
+    - acme.example
+    - acmedynamics.example
+
+  "A deal with no mail yet": []
