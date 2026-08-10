@@ -208,6 +208,94 @@ def main() -> None:
     """Chief-of-staff reports over the local Gmail mirror."""
 
 
+def _require_setup() -> "Config":
+    """Stop with directions instead of computing against defaults.
+
+    On a machine with nothing configured, `cos brief` used to invent a
+    ~/vault directory and write a file into it, against an empty principal.
+    A first command on a fresh install should say what to do next, not
+    guess.
+    """
+    cfg = Config.load()
+    if not cfg.principal_addresses:
+        console.print("[yellow]Not configured yet.[/yellow] Run "
+                      "[bold]cos setup[/bold] — it lists each step and "
+                      "checks it off as you go.")
+        sys.exit(2)
+    return cfg
+
+
+@main.command()
+def setup() -> None:
+    """Where your install stands: every prerequisite, checked, with the fix.
+
+    Safe to run at any time, from the first minute. Nothing here writes
+    anything except .env (copied from the example, once, so there is a file
+    to edit).
+    """
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parents[2]
+    env_file = repo / ".env"
+    if not env_file.exists() and (repo / ".env.example").exists():
+        env_file.write_text((repo / ".env.example").read_text())
+        console.print(f"[green]✓[/green] created .env from .env.example — edit it next")
+
+    cfg = Config.load()
+    rows: list[tuple[bool, str, str]] = []
+
+    rows.append((env_file.exists(), ".env exists",
+                 "cp .env.example .env"))
+    rows.append((bool(cfg.principal_addresses),
+                 f"COS_PRINCIPAL_ADDRESSES set"
+                 + (f" ({cfg.principal_addresses[0]})" if cfg.principal_addresses else ""),
+                 "edit .env: your own email address(es), comma-separated"))
+
+    oauth = Path.home() / ".config" / "cos" / "oauth_client.json"
+    from .google_auth import TOKEN_FILE as GOOGLE_TOKEN
+    from .ms_auth import TOKEN_FILE as MS_TOKEN
+    has_google = GOOGLE_TOKEN.exists()
+    has_ms = MS_TOKEN.exists()
+    rows.append((oauth.exists() or has_google or has_ms,
+                 "a mail connection is prepared",
+                 "Gmail: save the OAuth client JSON to "
+                 "~/.config/cos/oauth_client.json (README step 2). "
+                 "Microsoft: see docs/SETUP-MICROSOFT.md"))
+    rows.append((has_google or has_ms,
+                 "signed in to mail ("
+                 + ("Gmail" if has_google else "Microsoft" if has_ms else "none")
+                 + ")",
+                 "Gmail: cos check (first run opens the consent screen). "
+                 "Microsoft: cos ms-auth"))
+
+    rows.append((cfg.vault_root.is_dir(),
+                 f"notes folder exists ({cfg.vault_root})",
+                 "optional — set COS_VAULT_ROOT in .env to your Obsidian "
+                 "vault, or leave unset to skip notes"))
+    rows.append(((repo / "config" / "deal_domains.yaml").exists(),
+                 "deal list exists (config/deal_domains.yaml)",
+                 "optional — cp config/deal_domains.example.yaml "
+                 "config/deal_domains.yaml and add your deals"))
+
+    ok = True
+    for good, label, fix in rows:
+        mark = "[green]✓[/green]" if good else "[red]✗[/red]"
+        console.print(f"{mark} {label}")
+        if not good:
+            ok = False
+            console.print(f"    → {fix}")
+
+    console.print()
+    if ok:
+        console.print("[green]Ready.[/green] Try: [bold]cos brief[/bold], "
+                      "then [bold]cos owed[/bold]. Dashboard: cos serve. "
+                      "Brain + assistant: docs/SETUP-gbrain-hermes.md")
+    else:
+        console.print("Fix the [red]✗[/red] lines top to bottom, then run "
+                      "[bold]cos setup[/bold] again.")
+        sys.exit(1)
+
+
 @main.command()
 def check() -> None:
     """Verify the graph is reachable and current."""
@@ -238,7 +326,7 @@ def check() -> None:
 @click.option("--all", "show_all", is_flag=True, help="Include deals under threshold.")
 def quiet(days: int | None, show_all: bool) -> None:
     """Named deals with no human contact recently."""
-    cfg = Config.load()
+    cfg = _require_setup()
     threshold = days if days is not None else cfg.quiet_days
     now = utc_now()
 
@@ -301,7 +389,7 @@ def quiet(days: int | None, show_all: bool) -> None:
 )
 def owed(days: int | None, limit: int, include_new: bool) -> None:
     """People who wrote last and have had no reply from you."""
-    cfg = Config.load()
+    cfg = _require_setup()
     window = days if days is not None else cfg.owed_window_days
     now = utc_now()
 
@@ -356,7 +444,7 @@ def owed(days: int | None, limit: int, include_new: bool) -> None:
 )
 def dashboard(path: Path | None) -> None:
     """Update the dashboard, preserving everything you have written in it."""
-    cfg = Config.load()
+    cfg = _require_setup()
     now = utc_now()
     target = path or (
         cfg.vault_root / "05_workspace" / "Task_management" / "Dashboard.md"
@@ -519,7 +607,7 @@ def notes_cmd(about: str | None, show_all: bool, limit: int, reindex: bool) -> N
 @main.command()
 def brief() -> None:
     """Write 90_agent/today.md — the date anchor plus exhaustive lists."""
-    cfg = Config.load()
+    cfg = _require_setup()
     now = utc_now()
     deals = load_deals(cfg.vault_root)
     attach_domains(deals, load_deal_domains(cfg.deal_domains_path))
@@ -734,6 +822,7 @@ def digest_cmd(do_send: bool, to: str | None) -> None:
     """
     from . import digest as digest_mod
 
+    _require_setup()
     text = digest_mod.build()
     if not do_send:
         console.print(text)
@@ -949,6 +1038,7 @@ def snapshot_cmd() -> None:
     """
     from .webconfig import write_snapshot
 
+    _require_setup()
     path = write_snapshot()
     console.print(f"[green]✓[/green] {path}")
 

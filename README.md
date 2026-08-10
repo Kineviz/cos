@@ -87,6 +87,11 @@ The first run opens Google's consent screen in your browser. Approve it once
 and you are connected. (Google requires no app review below 100 users, which
 is one reason this is self-hosted software rather than a service.)
 
+**A shortcut for the whole install:** run `cos setup` at any point — it
+checks every step below and prints the fix for whatever is missing. If you
+use Claude Code, open this folder and ask it to help you install; the repo
+carries instructions for it.
+
 **Step 3 — tell it who you are.** Copy `.env.example` to `.env` and set:
 
 | Setting | What it means |
