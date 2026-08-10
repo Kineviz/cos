@@ -916,6 +916,35 @@ def graph_build_cmd(limit: int, undo: bool) -> None:
                   + (f" [red]{res.errors} failed.[/red]" if res.errors else ""))
 
 
+@main.command("google-auth")
+def google_auth_cmd() -> None:
+    """Connect a Gmail mailbox: read-only mail and calendar.
+
+    Opens Google's consent screen and stores the grant in
+    ~/.config/cos/token.json. Needs oauth_client.json already in that
+    directory — download it from Google Cloud Console (APIs & Services ->
+    Credentials -> OAuth client ID -> Desktop app).
+
+    Read-only by construction: the scopes can list and read mail and calendar
+    and nothing else — no send, label, archive or delete. Re-run any time to
+    re-consent; revoke at myaccount.google.com.
+    """
+    from .google_auth import AuthError, TOKEN_FILE, load_credentials
+
+    console.print("Opening Google's consent page. Approve the read-only "
+                  "Gmail and Calendar scopes.")
+    try:
+        load_credentials(interactive=True)
+    except AuthError as e:
+        console.print(f"[red]✗[/red] {e}")
+        sys.exit(1)
+    except Exception as e:  # noqa: BLE001
+        console.print(f"[red]✗[/red] {type(e).__name__}: {e}")
+        sys.exit(1)
+    console.print(f"[green]✓[/green] Saved to {TOKEN_FILE}.")
+    console.print("Now run [bold]cos check[/bold] to prove the grant works.")
+
+
 @main.command("ms-auth")
 def ms_auth_cmd() -> None:
     """Sign in to a Microsoft mailbox (Exchange Online / outlook.com).
