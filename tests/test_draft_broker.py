@@ -20,7 +20,7 @@ def H(**kw) -> list[dict]:
 
 
 class TestReplyAddresses:
-    ME = "weidong@kineviz.com"
+    ME = "you@yourcompany.com"
 
     def test_replies_to_the_sender(self):
         to, cc = _reply_addresses(
@@ -61,15 +61,15 @@ class TestReplyAddresses:
 
     def test_case_insensitive_self_match(self):
         _, cc = _reply_addresses(
-            H(From="them@x.com", To="Weidong@Kineviz.COM, other@y.com"), self.ME
+            H(From="them@x.com", To="You@YourCompany.COM, other@y.com"), self.ME
         )
-        assert all("kineviz" not in a.lower() for a in cc)
+        assert all("yourcompany" not in a.lower() for a in cc)
 
 
 class TestPromptInjectionCannotRedirect:
     """The attack the design exists to stop."""
 
-    ME = "weidong@kineviz.com"
+    ME = "you@yourcompany.com"
 
     def test_addresses_in_the_body_are_irrelevant(self):
         # A poisoned message body cannot contribute a recipient, because the
@@ -117,10 +117,10 @@ class TestMalformedAddressesAreDropped:
     def test_an_exchange_dn_in_cc_is_dropped_not_copied(self):
         to, cc = _reply_addresses(self._hdrs(
             From="Brad <bradford.t.spiers@bigbankhase.com>",
-            To="wei@kineviz.com",
+            To="you@yourcompany.com",
             Cc="/O=BigBank/OU=EXCHANGE/CN=RECIPIENTS/CN=SOMEONE, "
                "Real Person <real@example.com>"),
-            me="wei@kineviz.com")
+            me="you@yourcompany.com")
         assert to == ["bradford.t.spiers@bigbankhase.com"]
         assert cc == ["real@example.com"]
 
@@ -129,7 +129,7 @@ class TestMalformedAddressesAreDropped:
             From="a@example.com",
             To="undisclosed-recipients:;, b@example.com",
             Cc='"" <>, c@ex'),
-            me="wei@kineviz.com")
+            me="you@yourcompany.com")
         assert to == ["a@example.com"]
         assert cc == ["b@example.com"]
 
@@ -137,8 +137,8 @@ class TestMalformedAddressesAreDropped:
         """Cc can be cleaned; To cannot be guessed. No valid sender means no
         draft, not a draft to something that merely looks like an address."""
         to, _cc = _reply_addresses(self._hdrs(
-            From="/O=BROKEN/CN=DN", To="wei@kineviz.com"),
-            me="wei@kineviz.com")
+            From="/O=BROKEN/CN=DN", To="you@yourcompany.com"),
+            me="you@yourcompany.com")
         assert to == []
 
 

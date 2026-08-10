@@ -219,7 +219,7 @@ def check() -> None:
             else:
                 console.print(f"[red]✗[/red] Kuzu server unreachable at {cfg.kuzu_url}")
                 console.print(
-                    "  Start it:  cd ~/projects/Gmail && python scripts/serve.py --port 7001"
+                    "  Start it:  cd $COS_GMAIL_ROOT && python scripts/serve.py --port 7001"
                 )
             sys.exit(1)
         newest = corpus_freshness(client)
@@ -878,7 +878,7 @@ def draft_auth_cmd() -> None:
     from .draft_broker import DRAFT_TOKEN_FILE, DraftError, authorize
 
     console.print("Opening Google's consent page. Approve for "
-                  "[bold]weidong@kineviz.com[/bold].")
+                  "[bold]you@yourcompany.com[/bold].")
     try:
         authorize(interactive=True)
     except DraftError as e:

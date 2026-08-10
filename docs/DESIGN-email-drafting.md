@@ -141,7 +141,7 @@ which costs the read-only property the whole design has relied on. Rejected.
 
 - Desktop OAuth client, refresh token in the macOS keychain (or
   `~/.config/kiran/`, mode 600) — **never** in the repo, never in `.env`.
-- One account: `weidong@kineviz.com`.
+- One account: `you@yourcompany.com`.
 - The token grants no read, so it is not a data-exfiltration credential. It is
   still a write credential and belongs in the audit trail.
 - Revocable independently at myaccount.google.com without touching mbsync's

@@ -23,7 +23,7 @@ class TestSelectionCannotHijackKiran:
         monkeypatch.setattr(ms_auth, "TOKEN_FILE", ms_tok)
 
         class Cfg:
-            principal_addresses = ("wei@kineviz.com",)
+            principal_addresses = ("you@yourcompany.com",)
             kuzu_url = "http://nowhere"
 
         got = backend.open_backend(Cfg())

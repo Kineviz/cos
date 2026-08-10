@@ -64,7 +64,7 @@ class KuzuClient:
         except httpx.HTTPError as exc:
             raise KuzuError(
                 f"cannot reach the Kuzu server at {self.url}: {exc}\n"
-                "Start it with:  cd ~/projects/Gmail && python scripts/serve.py --port 7001"
+                "Start it with:  cd $COS_GMAIL_ROOT && python scripts/serve.py --port 7001"
             ) from exc
 
         payload = resp.json()

@@ -60,7 +60,7 @@ class TestDomainHelpers:
     def test_freemail(self):
         assert is_freemail("someone@gmail.com")
         assert is_freemail("qq.com")
-        assert not is_freemail("wei@kineviz.com")
+        assert not is_freemail("you@yourcompany.com")
 
 
 class TestMimePayloadCoercion:
