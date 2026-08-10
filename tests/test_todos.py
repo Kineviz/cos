@@ -34,7 +34,7 @@ _(Note: list carried forward; edits through Fri 2026-08-07.)_
 
 ## Next 30 days (not urgent)
 
-5. **Piyush + Bei (Google) — Spanner Graph demo and blog.** They published
+5. **Devi + Kai (Google) — Spanner Graph demo and blog.** They published
    connecting data commons to proprietary data.
 7. **Publish "Why enterprise needs dynamic ontology"** — blog series.
 

@@ -76,8 +76,9 @@ class TestFindByName:
 
     def test_ambiguous_substring_matches_nothing(self):
         paneldb.add_item("prospects", "Northwind")
-        paneldb.add_item("prospects", "Northwindtion Corp")
-        assert paneldb.find_item("prospects", "constell") is None
+        paneldb.add_item("prospects", "Northwind Group")
+        # "northwi" is inside both names and exactly neither: ambiguous.
+        assert paneldb.find_item("prospects", "northwi") is None
 
     def test_unique_substring_matches(self):
         paneldb.add_item("prospects", "Nightowl")
