@@ -109,7 +109,7 @@ class AddressIndex:
 
 
 def _normalize_name(name: str) -> str:
-    """Fold a display name for comparison. `Yang, Weidong` -> `weidong yang`."""
+    """Fold a display name for comparison. `Reyes, Morgan` -> `morgan reyes`."""
     n = re.sub(r"\s+", " ", (name or "").strip())
     n = re.sub(r"\s*\([^)]*\)\s*$", "", n)          # trailing parenthetical
     n = re.sub(r"\s*<[^>]*>\s*", "", n)              # embedded address
