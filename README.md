@@ -161,6 +161,12 @@ pytest      # 417 tests, no network or database needed
 | `docs/BENCHMARK.md` | how the assistant's answers are scored |
 | `docs/PLAN-becoming-a-chief-of-staff.md` | where this is going |
 
+## License and credit
+
+MIT — see [LICENSE](LICENSE). Built by [Kineviz](https://www.kineviz.com),
+the graph-visualization company behind GraphXR, as the operating layer for
+its own founder's working day, and open-sourced so it can be yours too.
+
 ## A note on the name
 
 COS — Chief-of-staff Operation System, with a nod to MS-DOS. Like DOS, it is

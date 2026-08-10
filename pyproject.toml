@@ -2,6 +2,8 @@
 name = "cos"
 version = "0.2.0"
 description = "COS, the Chief-of-staff Operation System: a private chief of staff over your own mail, calendar and notes"
+license = {file = "LICENSE"}
+authors = [{name = "Kineviz, Inc.", email = "hello@kineviz.com"}]
 requires-python = ">=3.11"
 dependencies = [
     "httpx>=0.27",
