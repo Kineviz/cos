@@ -30,8 +30,9 @@ the core install is done.
    Google Cloud project, enable the Gmail and Calendar APIs, create an OAuth
    client ID (Desktop app), and download the JSON to
    `~/.config/cos/oauth_client.json`. Walk them through it; do not try to do
-   it for them. Then `cos check` opens the consent screen — they approve it
-   in their own browser.
+   it for them. Then `cos google-auth` opens the consent screen — they
+   approve it in their own browser — and `cos check` confirms the
+   connection.
    (Microsoft/Outlook instead: `docs/SETUP-MICROSOFT.md`.)
 4. `cos brief` and `cos owed` — the first real output. If `owed` shows
    people waiting, the install works.

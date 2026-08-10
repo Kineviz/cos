@@ -272,7 +272,7 @@ def setup() -> None:
                  "signed in to mail ("
                  + ("Gmail" if has_google else "Microsoft" if has_ms else "none")
                  + ")",
-                 "Gmail: cos check (first run opens the consent screen). "
+                 "Gmail: cos google-auth (opens the consent screen). "
                  "Microsoft: cos ms-auth"))
 
     rows.append((cfg.vault_root.is_dir(),
