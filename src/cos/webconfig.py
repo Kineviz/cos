@@ -265,6 +265,23 @@ def dashboard_data() -> dict:
             for i in owed[:15]
         ]
         out["owed_total"] = len(owed)
+
+        # A reply on WhatsApp is still a reply. Rows Wei has marked handled
+        # (on any channel) carry the record, and every presentation surface
+        # filters on it — the rows stay in the snapshot because the Tasks
+        # panel needs them to show Done and to notice when someone writes
+        # again.
+        from . import agenda
+
+        try:
+            handled = agenda.owed_overrides(out["owed"])
+        except Exception:  # noqa: BLE001
+            handled = {}
+        for row in out["owed"]:
+            info = handled.get(row["who"])
+            if info:
+                row["handled"] = info
+        out["owed_open"] = out["owed_total"] - len(handled)
         quiet = [s for s in statuses
                  if s.mapped and (s.days_quiet(now) or 0) >= cfg.quiet_days]
         quiet.sort(key=lambda s: s.days_quiet(now) or 0, reverse=True)
@@ -311,8 +328,8 @@ def dashboard_data() -> dict:
     return out
 
 
-_REPORT_KEYS = ("owed", "owed_total", "quiet", "deal_domains", "prospects",
-                "prospect_states")
+_REPORT_KEYS = ("owed", "owed_total", "owed_open", "quiet", "deal_domains",
+                "prospects", "prospect_states")
 
 
 def _repatch_prospects() -> None:

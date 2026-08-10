@@ -48,8 +48,10 @@ MATCH_FLOOR = 0.62
 def _owed() -> list[dict]:
     from .webconfig import read_snapshot
 
+    # Rows marked handled on another channel are not waiting, whatever the
+    # mail says — see agenda.handle_owed.
     return [r for r in (read_snapshot().get("owed") or [])
-            if r.get("msg") or r.get("thread")]
+            if (r.get("msg") or r.get("thread")) and not r.get("handled")]
 
 
 def _known(who: str, limit: int = 6) -> list[dict]:
@@ -114,6 +116,14 @@ def _who_is_waiting() -> str:
     for r in rows[:15]:
         out.append(f"- {r.get('who')} ({r.get('org') or 'no domain'}) — "
                    f"{r.get('days')} days, re {r.get('subject')}")
+    from .webconfig import read_snapshot
+
+    done = [r for r in (read_snapshot().get("owed") or []) if r.get("handled")]
+    if done:
+        out.append("")
+        out.append("Already handled on another channel (not waiting): "
+                   + "; ".join(f"{r.get('who')} ({r['handled'].get('via') or 'elsewhere'}"
+                               f" {r['handled'].get('at','')})" for r in done[:6]))
     out.append("")
     out.append("To write one, call draft_reply with the person's name exactly "
                "as it appears above.")

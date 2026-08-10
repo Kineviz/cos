@@ -133,6 +133,28 @@ def _panel_focus(panel: str, item: str, on: bool) -> str:
             f"{row['name']} cleared from 'needs attention now'.")
 
 
+def _replied_elsewhere(who: str, channel: str, note: str) -> str:
+    from . import agenda
+
+    try:
+        msg = agenda.handle_owed(who, channel=channel, note=note)
+    except ValueError as e:
+        return str(e)
+    _export()
+    return msg
+
+
+def _still_waiting(who: str) -> str:
+    from . import agenda
+
+    try:
+        msg = agenda.reopen_owed(who)
+    except ValueError as e:
+        return str(e)
+    _export()
+    return msg
+
+
 def _panel_done(panel: str, item: str) -> str:
     if panel == "tasks":
         it = _task_by_name(item)
@@ -256,6 +278,47 @@ async def list_tools() -> list[Tool]:
             },
         ),
         Tool(
+            name="replied_elsewhere",
+            description=(
+                "Take someone OFF the waiting-on-a-reply list because Wei "
+                "answered them outside email — SMS, WhatsApp, LinkedIn, a "
+                "phone call, in person. Records the channel and an optional "
+                "note, persists across refreshes, and the person returns "
+                "automatically if they write again. Use when Wei says things "
+                "like 'I already replied to X on WhatsApp', 'archive X', "
+                "'X is handled', 'I called them back'."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "who": {"type": "string",
+                            "description": "Their name as it appears on the "
+                                           "waiting list."},
+                    "channel": {"type": "string",
+                                "description": "email, sms, whatsapp, "
+                                               "linkedin, phone, in-person "
+                                               "or other."},
+                    "note": {"type": "string",
+                             "description": "Optional context, e.g. 'said "
+                                            "yes to Tuesday'."},
+                },
+                "required": ["who"],
+            },
+        ),
+        Tool(
+            name="still_waiting",
+            description=(
+                "Undo replied_elsewhere: put someone back on the waiting "
+                "list. Use when Wei says the archive was a mistake or they "
+                "are in fact still owed a reply."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {"who": {"type": "string"}},
+                "required": ["who"],
+            },
+        ),
+        Tool(
             name="panel_done",
             description=(
                 "Mark a task done, or archive a prospect. Both are "
@@ -278,6 +341,8 @@ async def call_tool(name: str, arguments: dict | None) -> list[TextContent]:
     args = arguments or {}
     panel = (args.get("panel") or "").strip().lower()
     try:
+        if name in ("replied_elsewhere", "still_waiting"):
+            panel = "tasks"        # they act on the waiting list directly
         if panel not in ("tasks", "prospects"):
             text = 'panel must be "tasks" or "prospects".'
         elif name == "panel_items":
@@ -292,6 +357,12 @@ async def call_tool(name: str, arguments: dict | None) -> list[TextContent]:
         elif name == "panel_focus":
             text = _panel_focus(panel, args.get("item", ""),
                                 bool(args.get("on", True)))
+        elif name == "replied_elsewhere":
+            text = _replied_elsewhere(args.get("who", ""),
+                                      args.get("channel", ""),
+                                      args.get("note", ""))
+        elif name == "still_waiting":
+            text = _still_waiting(args.get("who", ""))
         elif name == "panel_done":
             text = _panel_done(panel, args.get("item", ""))
         else:

@@ -281,3 +281,54 @@ class TestResilience:
 
     def test_empty_snapshot_gives_an_empty_list(self):
         assert agenda.build({}) == []
+
+
+class TestHandledElsewhere:
+    """A reply on WhatsApp is still a reply. The waiting list must reflect
+    Wei's actual response state, not just his email."""
+
+    SNAP = {"owed": [
+        {"who": "Pat Fisher", "subject": "CBP demo", "days": 73},
+        {"who": "Max Story", "subject": "Lunch", "days": 65},
+    ], "quiet": []}
+
+    def test_handling_records_the_channel_and_clears_the_row(self):
+        msg = agenda.handle_owed("Pat", channel="whatsapp",
+                                 note="said yes to Tuesday",
+                                 snapshot=self.SNAP)
+        assert "whatsapp" in msg
+        overrides = agenda.owed_overrides(self.SNAP["owed"])
+        assert "Pat Fisher" in overrides
+        assert overrides["Pat Fisher"]["via"] == "whatsapp"
+        assert "said yes to Tuesday" in overrides["Pat Fisher"]["note"]
+        assert "Max Story" not in overrides
+
+    def test_the_override_survives_a_rebuild(self):
+        agenda.handle_owed("Pat", channel="sms", snapshot=self.SNAP)
+        items = agenda.build(self.SNAP)
+        pat = next(i for i in items if i.title == "Pat Fisher")
+        assert pat.done
+
+    def test_a_newer_message_revives_them(self):
+        """A new message is newly owed, whatever happened to the old one."""
+        agenda.handle_owed("Pat", channel="phone", snapshot=self.SNAP)
+        newer = {"owed": [dict(self.SNAP["owed"][0], days=2)], "quiet": []}
+        assert agenda.owed_overrides(newer["owed"]) == {}
+        pat = next(i for i in agenda.build(newer) if i.title == "Pat Fisher")
+        assert not pat.done
+
+    def test_reopen_is_the_undo(self):
+        agenda.handle_owed("Pat", channel="linkedin", snapshot=self.SNAP)
+        agenda.reopen_owed("Pat", snapshot=self.SNAP)
+        assert agenda.owed_overrides(self.SNAP["owed"]) == {}
+
+    def test_an_ambiguous_name_is_refused(self):
+        snap = {"owed": [{"who": "Pat Fisher", "days": 10},
+                         {"who": "Pat Boone", "days": 12}], "quiet": []}
+        with pytest.raises(ValueError, match="matches several"):
+            agenda.handle_owed("Pat", snapshot=snap)
+
+    def test_an_unknown_channel_becomes_other(self):
+        agenda.handle_owed("Max", channel="carrier pigeon",
+                           snapshot=self.SNAP)
+        assert agenda.owed_overrides(self.SNAP["owed"])["Max Story"]["via"] == "other"

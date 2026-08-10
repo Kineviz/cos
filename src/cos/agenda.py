@@ -287,6 +287,101 @@ def build(snapshot: dict | None = None) -> list[Item]:
     return visible
 
 
+# The channels a reply can happen on. "other" is deliberate: the point is
+# recording THAT it was handled, not building a taxonomy.
+CHANNELS = ("email", "sms", "whatsapp", "linkedin", "phone", "in-person",
+            "other")
+
+
+def handle_owed(name: str, channel: str = "", note: str = "",
+                snapshot: dict | None = None) -> str:
+    """Mark a person's owed reply as handled — on any channel.
+
+    Wei: the waiting list "flags any contact with a recent inbound email
+    that has no outbound reply in the same thread" — but he replies on SMS,
+    WhatsApp, LinkedIn and the phone too, and those replies are invisible
+    to mail. People he had already answered kept surfacing for 70+ days.
+
+    This is the existing dismissal (tick the row), given a memory: which
+    channel, when, and a note. Same persistence, same revival rule — a
+    NEWER message from the person brings them back, because a new message
+    is newly owed whatever happened to the old one.
+    """
+    item = _owed_by_name(name, snapshot)
+    channel = (channel or "").strip().lower()
+    if channel and channel not in CHANNELS:
+        channel = "other"
+    act(item.id, "done", snapshot=snapshot)
+    stamp = f"replied via {channel}" if channel else "handled elsewhere"
+    if note.strip():
+        stamp += f" — {note.strip()}"
+    act(item.id, "comment", stamp, snapshot=snapshot)
+    state = _load_state()
+    entry = _touch(state, item.id)
+    entry["handled_via"] = channel or "other"
+    _save_state(state)
+    return f"{item.title}: {stamp}. They will come back if they write again."
+
+
+def reopen_owed(name: str, snapshot: dict | None = None) -> str:
+    """Undo — they are still waiting after all."""
+    item = _owed_by_name(name, snapshot, include_done=True)
+    act(item.id, "undone", snapshot=snapshot)
+    state = _load_state()
+    _touch(state, item.id).pop("handled_via", None)
+    _save_state(state)
+    return f"{item.title} is back on the waiting list."
+
+
+def _owed_by_name(name: str, snapshot: dict | None,
+                  include_done: bool = False):
+    """The one owed item a name means. Ambiguity is an error, not a guess —
+    archiving the wrong person's thread is worse than asking."""
+    needle = (name or "").strip().lower()
+    if not needle:
+        raise ValueError("Whose reply? Give me a name.")
+    rows = [i for i in build(snapshot) if i.kind == DERIVED_OWED
+            and (include_done or not i.done)]
+    exact = [i for i in rows if i.title.lower() == needle]
+    if len(exact) == 1:
+        return exact[0]
+    part = [i for i in rows if needle in i.title.lower()]
+    if len(part) == 1:
+        return part[0]
+    if len(part) > 1:
+        raise ValueError(f"{name!r} matches several people: "
+                         + "; ".join(i.title for i in part[:4])
+                         + ". Say more of the name.")
+    raise ValueError(f"Nobody on the waiting list matches {name!r}.")
+
+
+def owed_overrides(rows: list[dict]) -> dict[str, dict]:
+    """Which of these owed rows are handled, by the same rule build() uses.
+
+    Keyed by the row's `who`. Presentation surfaces — who-is-waiting, the
+    digest, instant answers, `cos owed` — call this so a reply on WhatsApp
+    silences the nagging everywhere, not only on the Tasks panel.
+    """
+    state = _load_state()
+    out: dict[str, dict] = {}
+    for row in rows:
+        who = row.get("who") or ""
+        st = (state.get("items") or {}).get(_sid(DERIVED_OWED, who)) or {}
+        if not st.get("done"):
+            continue
+        since = st.get("dismissed_at_days")
+        days = row.get("days")
+        if since is not None and days is not None and days < since:
+            continue          # they wrote again — the dismissal has lapsed
+        comments = st.get("comments") or []
+        out[who] = {
+            "at": (st.get("done_at") or "")[:10],
+            "via": st.get("handled_via", ""),
+            "note": comments[-1]["text"] if comments else "",
+        }
+    return out
+
+
 @_serialised
 def move(item_id: str, bucket: str, above: str | None = None,
          below: str | None = None, snapshot: dict | None = None) -> str:

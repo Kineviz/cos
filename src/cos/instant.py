@@ -128,7 +128,9 @@ def _plural(n: int, one: str, many: str) -> str:
 
 
 def _owed_line(snap: dict) -> str:
-    rows = snap.get("owed") or []
+    # A reply on WhatsApp is still a reply — rows marked handled on another
+    # channel do not belong in "who is waiting".
+    rows = [r for r in (snap.get("owed") or []) if not r.get("handled")]
     if not rows:
         return "Nobody is waiting on a reply from you right now."
     top = rows[0]
@@ -141,7 +143,7 @@ def _owed_line(snap: dict) -> str:
         lead += f", re {subject[:70]}"
     lead += "."
 
-    total = snap.get("owed_total")
+    total = snap.get("owed_open", snap.get("owed_total"))
     if isinstance(total, int) and total > 1:
         others = [f"{r.get('who')} ({int(r['days'])}d)" for r in rows[1:5]
                   if isinstance(r.get("days"), (int, float))]

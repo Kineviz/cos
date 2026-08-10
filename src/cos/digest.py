@@ -136,6 +136,15 @@ def build(now=None) -> str:
             ledger, now, cfg.owed_window_days,
             internal_domains=load_internal_domains(cfg.deal_domains_path),
         )
+        # A reply on WhatsApp is still a reply. The digest must not nag
+        # about people Wei has marked handled on another channel.
+        from . import agenda
+
+        handled = agenda.owed_overrides(
+            [{"who": i.who or i.counterparty.address, "days": i.days_waiting}
+             for i in owed])
+        owed = [i for i in owed
+                if (i.who or i.counterparty.address) not in handled]
         sections.append(_fmt_meetings(_upcoming_meetings(cfg, now), now))
         sections.append(_fmt_owed(owed))
         sections.append(_fmt_quiet(statuses, now, cfg.quiet_days))

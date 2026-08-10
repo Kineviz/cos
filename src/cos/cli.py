@@ -417,6 +417,28 @@ def owed(days: int | None, limit: int, include_new: bool) -> None:
         require_prior_reply=not include_new,
     )
 
+    # Replies happen off email too. Anything marked handled — on WhatsApp,
+    # by phone, wherever — moves to its own section, visible for audit
+    # rather than silently gone.
+    from . import agenda as agenda_mod
+
+    handled = agenda_mod.owed_overrides(
+        [{"who": i.who or i.counterparty.address, "days": i.days_waiting}
+         for i in items])
+    handled_items = [i for i in items
+                     if (i.who or i.counterparty.address) in handled]
+    items = [i for i in items
+             if (i.who or i.counterparty.address) not in handled]
+
+    if handled_items:
+        console.print(f"[dim]Handled on another channel "
+                      f"({len(handled_items)}):[/dim]")
+        for i in handled_items:
+            info = handled[i.who or i.counterparty.address]
+            console.print(f"[dim]  {i.who or i.counterparty.address} — "
+                          f"{info.get('via') or 'elsewhere'} "
+                          f"{info.get('at','')}  {info.get('note','')}[/dim]")
+
     if not items:
         console.print(
             f"[green]Inbox conscience clear.[/green] Nobody outside "
