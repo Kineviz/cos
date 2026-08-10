@@ -9,7 +9,7 @@ Two rules govern everything here, both from the review:
   * **Address-first, never name-first.** A page claims an address, or it does
     not match. Name similarity only ever *generates a candidate*; it never
     concludes. Name-first matching with the disambiguating parenthetical
-    stripped is precisely the bug that collapsed the two Claudia Brenners.
+    stripped is precisely the bug that collapsed the two Jamie Larkins.
   * **Splitting is cheap, merging is unrecoverable.** An unmatched address
     produces a missing link, which is visible and harmless. A wrong match
     silently attributes one person's email to another, and nothing surfaces it.
@@ -127,7 +127,7 @@ def build_name_index(pages: list[PersonPage]) -> dict[str, PersonPage]:
     A name shared by two pages resolves to neither, and a page carrying a
     disambiguating parenthetical is excluded entirely — the parenthetical
     exists precisely because the bare name is not sufficient to identify that
-    person. This is what keeps the two Claudia Brenners apart.
+    person. This is what keeps the two Jamie Larkins apart.
     """
     counts: dict[str, list[PersonPage]] = {}
     for page in pages:

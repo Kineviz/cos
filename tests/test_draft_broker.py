@@ -116,12 +116,12 @@ class TestMalformedAddressesAreDropped:
 
     def test_an_exchange_dn_in_cc_is_dropped_not_copied(self):
         to, cc = _reply_addresses(self._hdrs(
-            From="Brad <bradford.t.spiers@bigbankhase.com>",
+            From="Pat <pat.fisher@bigbank.example>",
             To="you@yourcompany.com",
             Cc="/O=BigBank/OU=EXCHANGE/CN=RECIPIENTS/CN=SOMEONE, "
                "Real Person <real@example.com>"),
             me="you@yourcompany.com")
-        assert to == ["bradford.t.spiers@bigbankhase.com"]
+        assert to == ["pat.fisher@bigbank.example"]
         assert cc == ["real@example.com"]
 
     def test_empty_and_group_syntax_are_dropped(self):

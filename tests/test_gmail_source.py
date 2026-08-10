@@ -39,8 +39,8 @@ class TestFilterParity:
 class TestHeaderParsing:
     RAW = (
         b"From: Morgan Reyes <Morgan.Reyes@HillcrestAssociates.com>\r\n"
-        b"To: Weidong Yang <you@yourcompany.com>, Sony <sony@kineviz.com>\r\n"
-        b"Cc: ben@kineviz.com\r\n"
+        b"To: Alex Doe <you@yourcompany.com>, Sam <sam@yourcompany.com>\r\n"
+        b"Cc: pat@yourcompany.com\r\n"
         b"Subject: Re: Seeker XR\r\n"
         b"Message-ID: <abc@hillcrest>\r\n"
         b"\r\n"
@@ -55,7 +55,7 @@ class TestHeaderParsing:
     def test_recipients_include_to_and_cc_lowercased(self):
         got = GmailApiSource._headers_from_raw(self.RAW)
         assert set(got["recipients"]) == {
-            "you@yourcompany.com", "sony@kineviz.com", "ben@kineviz.com",
+            "you@yourcompany.com", "sam@yourcompany.com", "pat@yourcompany.com",
         }
 
     def test_missing_headers_do_not_raise(self):

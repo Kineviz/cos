@@ -69,7 +69,7 @@ async def list_tools() -> list[Tool]:
             name="days_between",
             description=(
                 "Days between two dates (YYYY-MM-DD). Omit `to` to measure "
-                "from that date to now — 'how long since Martin last wrote'. "
+                "from that date to now — 'how long since Morgan last wrote'. "
                 "Negative means the date is in the future."
             ),
             inputSchema={

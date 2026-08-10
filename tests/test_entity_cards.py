@@ -20,8 +20,8 @@ from cos.identity import classify_address
 
 class TestGazetteerSafeName:
     def test_two_token_names_are_kept(self):
-        assert _gazetteer_safe_name("Sony Green") == "Sony Green"
-        assert _gazetteer_safe_name("Daiane Lopes da Silva") == "Daiane Lopes da Silva"
+        assert _gazetteer_safe_name("Sam Green") == "Sam Green"
+        assert _gazetteer_safe_name("Ana Lopes da Silva") == "Ana Lopes da Silva"
 
     def test_brand_and_common_words_are_rejected(self):
         # The two that caused 25% of all proposed links.
@@ -49,13 +49,13 @@ class TestRoleAddressesAreNotPeople:
     """`write_entity_cards` skips kind == "role", so they never become targets."""
 
     def test_role_mailboxes_rejected(self):
-        for addr in ("hello@kineviz.com", "info@kinetecharts.org",
+        for addr in ("hello@kineviz.com", "info@artsorg.example",
                      "noreply@example.com", "support@vendor.io"):
             assert classify_address(addr).kind == "role", addr
 
     def test_real_counterparties_survive(self):
-        for addr in ("sony.green@kineviz.com", "amy.hodler@graphgeeks.org",
-                     "martin.dubbey@hillcrestassociates.com"):
+        for addr in ("sam.taylor@yourcompany.example", "jamie.fox@community.example",
+                     "morgan.reyes@hillcrestassociates.com"):
             assert classify_address(addr).kind != "role", addr
 
     def test_numeric_chinese_addresses_are_kept(self):

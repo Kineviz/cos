@@ -31,7 +31,7 @@ def isolated(tmp_path, monkeypatch):
 SNAP = {
     "owed": [
         {"who": "Pat Fisher", "subject": "CBP Demo", "days": 73},
-        {"who": "Max Latey", "subject": "Lunch", "days": 65},
+        {"who": "Max Story", "subject": "Lunch", "days": 65},
     ],
     "quiet": [{"name": "Nightowl", "days": 57, "ball": "them"}],
 }
@@ -44,7 +44,7 @@ def _by_title(items, title):
 class TestDerivedItems:
     def test_mail_becomes_items(self):
         items = agenda.build(SNAP)
-        assert {i.title for i in items} == {"Pat Fisher", "Max Latey", "Nightowl"}
+        assert {i.title for i in items} == {"Pat Fisher", "Max Story", "Nightowl"}
 
     def test_ids_are_stable_across_rebuilds(self):
         """State is keyed by id. If ids moved, every refresh would lose your

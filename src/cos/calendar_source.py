@@ -2,7 +2,7 @@
 
 Kiran could reconstruct the entire history of a relationship and none of its
 future — it did not know the meeting existed. This closes that: events become
-pages alongside email, so "what do I need to know before my call with Martin?"
+pages alongside email, so "what do I need to know before my call with Morgan?"
 can find the call, and "who have I actually met, versus only emailed?" becomes
 answerable at all.
 

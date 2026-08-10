@@ -2,7 +2,7 @@
 
 Everything else here is computed from mail headers or the vault, and is
 therefore disposable: delete the database, run the pipeline, get it back. Notes
-are different. "Morgan is the real decision maker", "Martin said on the call he
+are different. "Morgan is the real decision maker", "Morgan said on the call he
 wants to increase the investment" — that exists nowhere else. Losing it is
 unrecoverable.
 

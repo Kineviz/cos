@@ -9,8 +9,8 @@ attributed to the wrong message and date).
 
 A `>`-only stripper is not enough: 11.4% of this corpus uses Outlook
 `From:/Sent:/To:` block quoting with no prefix at all, and that 11.4% is
-disproportionately the important counterparties — the agency client, Racing Victoria,
-Bay Street, Hillcrest and Realising Potential are all Outlook shops.
+disproportionately the important counterparties — most of the top deals
+in the measured corpus are Outlook shops.
 """
 
 from __future__ import annotations

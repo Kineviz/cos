@@ -11,7 +11,7 @@ opens up:
 
     person → the threads that mention them → the other people in those threads
 
-which is the shape of "who else is involved in Northwind", "who does Martin
+which is the shape of "who else is involved in Northwind", "who does Morgan
 talk to here", "who should be on this reply" — all questions similarity can
 only guess at.
 
@@ -48,8 +48,8 @@ ENTITY_TYPES = ("person", "organization", "company", "concept", "project")
 # types were written by different importers and only one of them used
 # wikilinks.
 #
-#   an email page:    - [[jordan-lee|a colleague]] — `jordankang17@gmail.com`
-#   a meeting page:   - `ekung@box.com` — declined
+#   an email page:    - [[jordan-lee|a colleague]] — `jordan.lee77@gmail.example`
+#   a meeting page:   - `guest@partner.example` — declined
 #
 # So emails joined the graph and meetings did not. The addresses are right
 # there; nobody had connected them to the person pages the emails already
@@ -118,7 +118,7 @@ def link_meetings(limit: int = 0, undo: bool = False,
 
     # Only link to person pages that actually EXIST, which is far fewer than
     # the wikilinks suggest. The mail importer writes
-    # `[[alex-benedict|Alex Benedict]]` but never creates people/alex-benedict,
+    # `[[alex-doe|Alex Doe]]` but never creates people/alex-doe,
     # so most wikilinks point at nothing — which is the real reason the graph
     # looked sparse, and why link-sources reported two resolved edges against
     # 13,074 rows. Linking to a page that does not exist fails with "page not

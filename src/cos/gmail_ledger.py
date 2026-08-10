@@ -48,8 +48,8 @@ CACHE_MAX_AGE_MINUTES = 60
 
 # Gmail's categories are NOT used to filter, deliberately. They looked like the
 # obvious equivalent of the mirror's label check, and they silently removed real
-# correspondents: deb@knowledgegraph.tech (3 messages) sits in `updates`, and
-# judson.t@block71.co in `promotions`. `owed` would simply stop mentioning
+# correspondents: a conference contact (3 messages) sat in `updates`, and
+# an investor intro in `promotions`. `owed` would simply stop mentioning
 # people who were waiting on a reply.
 #
 # The mirror kept messages whose labels were NULL, which is most of them, so

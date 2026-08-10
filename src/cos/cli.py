@@ -780,7 +780,7 @@ def graph_people_cmd(limit: int, apply_: bool) -> None:
     """Step 1: create the person pages the links already point at.
 
     The brain holds 13,074 links and 8 person pages, because the mail importer
-    writes `[[alex-benedict|Alex Benedict]]` and never creates the page. Every
+    writes `[[alex-doe|Alex Doe]]` and never creates the page. Every
     fact here comes from mail headers the importer already resolved; nothing is
     inferred, and an existing page is never overwritten.
     """

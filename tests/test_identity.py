@@ -3,7 +3,7 @@ from cos.identity import classify_address, domain_of, is_freemail
 
 class TestRobotDetection:
     def test_plain_human_address_is_a_person(self):
-        assert classify_address("yolande.poirier@neo4j.com").is_person
+        assert classify_address("jane.doe@graphcorp.example").is_person
         assert classify_address("jsmith@hillcrestassociates.com").is_person
 
     def test_noreply_variants_are_role(self):

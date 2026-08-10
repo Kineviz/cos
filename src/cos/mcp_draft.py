@@ -57,7 +57,7 @@ def _known(who: str, limit: int = 6) -> list[dict]:
 
     The waiting list is 15 people; Wei writes to thousands. Restricting
     drafting to the waiting list was the wrong constraint and made Kiran look
-    stupid — "draft a reply to Martin" would fail for someone he emails weekly.
+    stupid — "draft a reply to Morgan" would fail for someone he emails weekly.
 
     Kiran can already read every address in this mailbox: it searches the mail
     for a living. Pretending it cannot was theatre. The constraint that

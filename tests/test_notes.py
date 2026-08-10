@@ -41,7 +41,7 @@ DASH = """# Dashboard
 
 **Notes**
 
-- Martin hinted at more money.
+- Jesse hinted at more money.
 """
 
 
@@ -51,7 +51,7 @@ class TestExtraction:
         user's task list and placeholders as if they were judgement."""
         texts = [n.text for n in N.extract_from_dashboard(DASH)]
         assert "Morgan is the real decision maker." in texts
-        assert "Martin hinted at more money." in texts
+        assert "Jesse hinted at more money." in texts
         assert "an item from the user's own task system" not in texts
         assert not any(t.startswith("[ ]") for t in texts)
         assert not any(t.startswith("_") for t in texts)
@@ -63,7 +63,7 @@ class TestExtraction:
     def test_notes_are_attached_to_their_section(self):
         by_text = {n.text: n.entity for n in N.extract_from_dashboard(DASH)}
         assert by_text["Morgan is the real decision maker."] == "deal:northwind"
-        assert by_text["Martin hinted at more money."] == "deal:hillcrest"
+        assert by_text["Jesse hinted at more money."] == "deal:hillcrest"
 
     def test_log_extraction_reads_the_about_tag(self):
         log = (
@@ -87,16 +87,16 @@ class TestLifecycle:
 
     def test_deleting_a_note_records_it_rather_than_dropping_it(self, conn):
         N.sync(conn, N.extract_from_dashboard(DASH), NOW)
-        remaining = [n for n in N.extract_from_dashboard(DASH) if "Morgan" not in n.text]
+        remaining = [n for n in N.extract_from_dashboard(DASH) if "Jesse" not in n.text]
         stats = N.sync(conn, remaining, LATER)
         assert stats["removed"] == 1
-        assert not any("Morgan" in r["text"] for r in N.query(conn))
+        assert not any("Jesse" in r["text"] for r in N.query(conn))
         assert any("Morgan" in r["text"] for r in N.query(conn, include_removed=True))
 
     def test_restoring_a_note_clears_the_deletion(self, conn):
         all_notes = N.extract_from_dashboard(DASH)
         N.sync(conn, all_notes, NOW)
-        N.sync(conn, [n for n in all_notes if "Morgan" not in n.text], LATER)
+        N.sync(conn, [n for n in all_notes if "Jesse" not in n.text], LATER)
         stats = N.sync(conn, all_notes, LATER + timedelta(days=1))
         assert stats["restored"] == 1
         assert any("Morgan" in r["text"] for r in N.query(conn))

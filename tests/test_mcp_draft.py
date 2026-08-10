@@ -15,7 +15,7 @@ from __future__ import annotations
 from cos import mcp_draft
 
 ROWS = [
-    {"who": "Bob Fisher", "org": "tradebytes.com", "days": 73,
+    {"who": "Bob Fisher", "org": "fisherco.example", "days": 73,
      "subject": "CBP Demo Strategy", "msg": "abc123"},
     {"who": "Robin Vale", "org": "insight2.com", "days": 71,
      "subject": "intro", "msg": "def456"},
@@ -42,7 +42,7 @@ class TestMatching:
         assert row["msg"] == "def456"
 
     def test_a_near_miss_still_matches(self):
-        row, _ = mcp_draft._match("Robin Agarwal", ROWS)  # transposed
+        row, _ = mcp_draft._match("Robin Vales", ROWS)  # near-miss spelling
         assert row and row["msg"] == "def456"
 
 
@@ -81,7 +81,7 @@ class TestPlumbing:
 
         def fake_compose(msg, who, subject, days, thread_id=None):
             seen.update(msg=msg, who=who, subject=subject, days=days)
-            return {"to": ["bob@tradebytes.com"], "subject": "Re: CBP",
+            return {"to": ["bob@fisherco.example"], "subject": "Re: CBP",
                     "body": "Hi Bob, Tuesday works. Wei"}
 
         # Patch the attribute on the module, not sys.modules: `from . import

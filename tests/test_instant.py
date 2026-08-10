@@ -21,7 +21,7 @@ SNAP = {
     "owed": [
         {"who": "Pat Fisher", "days": 73, "subject": "CBP Demo Strategy"},
         {"who": "Robin Vale", "days": 71, "subject": "intro"},
-        {"who": "Max Latey", "days": 66, "subject": "pricing"},
+        {"who": "Max Story", "days": 66, "subject": "pricing"},
     ],
     "quiet": [
         {"name": "Nightowl", "days": 58, "ball": "them"},
