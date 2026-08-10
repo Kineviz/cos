@@ -208,6 +208,13 @@ def main() -> None:
     """Chief-of-staff reports over the local Gmail mirror."""
 
 
+def _is_placeholder(cfg) -> bool:
+    """The example file ships you@yourcompany.com so there is something to
+    edit — a check that treats the placeholder as configured passes on a
+    file nobody touched."""
+    return any(a.endswith("@yourcompany.com") for a in cfg.principal_addresses)
+
+
 def _require_setup() -> "Config":
     """Stop with directions instead of computing against defaults.
 
@@ -217,7 +224,7 @@ def _require_setup() -> "Config":
     guess.
     """
     cfg = Config.load()
-    if not cfg.principal_addresses:
+    if not cfg.principal_addresses or _is_placeholder(cfg):
         console.print("[yellow]Not configured yet.[/yellow] Run "
                       "[bold]cos setup[/bold] — it lists each step and "
                       "checks it off as you go.")
@@ -246,7 +253,7 @@ def setup() -> None:
 
     rows.append((env_file.exists(), ".env exists",
                  "cp .env.example .env"))
-    rows.append((bool(cfg.principal_addresses),
+    rows.append((bool(cfg.principal_addresses) and not _is_placeholder(cfg),
                  f"COS_PRINCIPAL_ADDRESSES set"
                  + (f" ({cfg.principal_addresses[0]})" if cfg.principal_addresses else ""),
                  "edit .env: your own email address(es), comma-separated"))
