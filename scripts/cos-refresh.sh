@@ -16,6 +16,13 @@
 set -uo pipefail
 
 COS=~/projects/chief-of-staff
+# COS_VAULT_ROOT lives in .env, and launchd does not read .env — under the
+# scheduled job the variable was unset, the fallback pointed at a folder that
+# did not exist, and the vault went uncommitted (42 changes piled up in a day,
+# all invisible to the brain). Resolve it from .env before falling back.
+if [ -z "${COS_VAULT_ROOT:-}" ] && [ -f "$COS/.env" ]; then
+  COS_VAULT_ROOT="$(sed -n 's/^COS_VAULT_ROOT=//p' "$COS/.env" | tail -1)"
+fi
 VAULT="${COS_VAULT_ROOT:-$HOME/vault}"
 BRAIN=~/brain
 LOG=~/.cos/refresh.log

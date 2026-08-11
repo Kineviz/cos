@@ -121,7 +121,11 @@ def check_refresh_steps() -> Check:
     block = _last_run_block()
     if not block:
         return Check("refresh steps", UNKNOWN, "could not read the refresh log")
-    bad = [l.strip() for l in block if l.lstrip().startswith("!")]
+    # Exactly two spaces of indent, because this report is itself echoed into
+    # the log (more deeply indented) — matching any '!' line re-counted
+    # yesterday's quoted failures as today's, and the check could never clear.
+    bad = [l.strip() for l in block
+           if l.startswith("  !") and not l.startswith("   ")]
     if bad:
         return Check(
             "refresh steps", FAIL,
