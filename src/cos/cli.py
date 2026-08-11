@@ -820,6 +820,27 @@ def health_cmd(quiet_: bool) -> None:
     sys.exit(1 if bad else 0)
 
 
+@main.command("errors")
+@click.option("--limit", default=10, help="How many failures to show.")
+def errors_cmd(limit: int) -> None:
+    """Recent refresh failures, newest first, each with its cause.
+
+    The alert names a failure once, when it happens. This is where to look
+    one up afterwards — what failed, when, and the actual error — without
+    reading the raw log.
+    """
+    from . import health as health_mod
+
+    rows = health_mod.recent_failures(limit=limit)
+    if not rows:
+        console.print("No failures in the refresh log.")
+        return
+    for r in rows:
+        console.print(f"  [dim]{r['when']}[/dim]  {r['step']}")
+        if r["cause"]:
+            console.print(f"                    [red]{r['cause']}[/red]")
+
+
 @main.command("drafts")
 def drafts_cmd() -> None:
     """What happened to the drafts — the gate on unattended sending.

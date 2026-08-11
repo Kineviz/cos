@@ -102,7 +102,11 @@ def format_alert(decision: Decision) -> str | None:
         for c in decision.to_alert:
             parts.append(f"*{c.name}*: {c.detail}")
             if c.evidence:
-                parts.append(f"  `{c.evidence[:120]}`")
+                # Wide enough for a cause, not just a step name. 120 turned
+                # "brief failed — LedgerIncomplete: 6 of 4226 threads…" into
+                # "brief failed", which told Wei something broke and nothing
+                # else.
+                parts.append(f"  `{c.evidence[:300]}`")
     if decision.recovered:
         parts.append("🟢 *Recovered:* " + ", ".join(sorted(decision.recovered)))
     if not parts:

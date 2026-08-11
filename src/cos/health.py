@@ -114,6 +114,38 @@ def _last_run_block() -> list[str]:
     return lines[-40:]
 
 
+def _bang_lines(block: list[str]) -> list[int]:
+    """Indices of failed-step lines: exactly two spaces of indent, because
+    this report is itself echoed into the log (more deeply indented) —
+    matching any '!' line re-counted yesterday's quoted failures as today's,
+    and the check could never clear."""
+    return [i for i, l in enumerate(block)
+            if l.startswith("  !") and not l.startswith("   ")]
+
+
+def _cause_of(block: list[str], bang: int) -> str:
+    """The error behind a failed step, read from the lines above it.
+
+    '! brief failed' names the step and nothing else — the alert built from
+    it told Wei nothing, while the actual reason (Gmail refused 6 of 4226
+    threads) sat one line higher in the log. That reason is almost always the
+    nearest preceding line at column zero: Python prints the exception there
+    after its indented traceback, and git prints 'fatal:' there. Step chatter
+    is indented or ✓-prefixed, so it does not get picked up."""
+    for i in range(bang - 1, -1, -1):
+        line = block[i]
+        if not line.strip() or line.startswith((" ", "✓", "──")):
+            continue
+        # Errors name themselves: 'fatal: …', 'SomeError: message'. Success
+        # chatter ('60 page(s) written → …') does not, and without this shape
+        # test a step that carries its reason inline got an innocent progress
+        # line above it reported as its cause.
+        if not re.match(r"\S+:\s", line) or line.startswith("Traceback"):
+            continue
+        return line.strip()[:200]
+    return ""
+
+
 def check_refresh_steps() -> Check:
     """The script prefixes every failed step with '  !'. Those lines existed
     for two days and nobody was reading them, which is the actual reason this
@@ -121,16 +153,18 @@ def check_refresh_steps() -> Check:
     block = _last_run_block()
     if not block:
         return Check("refresh steps", UNKNOWN, "could not read the refresh log")
-    # Exactly two spaces of indent, because this report is itself echoed into
-    # the log (more deeply indented) — matching any '!' line re-counted
-    # yesterday's quoted failures as today's, and the check could never clear.
-    bad = [l.strip() for l in block
-           if l.startswith("  !") and not l.startswith("   ")]
+    bad = _bang_lines(block)
     if bad:
+        told = []
+        for i in bad[:3]:
+            step = block[i].strip()
+            cause = _cause_of(block, i)
+            told.append(f"{step} — {cause}" if cause and cause not in step
+                        else step)
         return Check(
             "refresh steps", FAIL,
             f"{len(bad)} step(s) failed in the last run",
-            " · ".join(b[:90] for b in bad[:3]),
+            " · ".join(told),
         )
     if not any("done" in l for l in block):
         # A run in progress has no "done" line yet, and a full cycle takes a
@@ -146,6 +180,35 @@ def check_refresh_steps() -> Check:
             block[0][:90] if block else "",
         )
     return Check("refresh steps", OK, "all steps completed")
+
+
+def recent_failures(limit: int = 10) -> list[dict]:
+    """Every failed step in the refresh log, newest first, each with its
+    cause. Wei: "I'd like to see more error reports" — the alert names the
+    failure once and moves on, and until this there was nowhere to look a
+    failure up after the fact short of reading the raw log."""
+    if not REFRESH_LOG.exists():
+        return []
+    try:
+        lines = REFRESH_LOG.read_text(errors="replace").splitlines()
+    except OSError:
+        return []
+    out: list[dict] = []
+    block_start = 0
+    when = ""
+    for i, line in enumerate(lines):
+        if line.startswith("──"):
+            block_start = i
+            m = re.search(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2})", line)
+            when = m.group(1) if m else ""
+            continue
+        if line.startswith("  !") and not line.startswith("   "):
+            block = lines[block_start:i + 1]
+            out.append({"when": when,
+                        "step": line.strip().lstrip("! ").strip(),
+                        "cause": _cause_of(block, len(block) - 1)})
+    out.reverse()
+    return out[:limit]
 
 
 # --------------------------------------------------------------------------

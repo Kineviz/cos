@@ -110,6 +110,63 @@ class TestRefresh:
         assert c.status == FAIL
         assert "2 step(s) failed" in c.detail
 
+    def test_a_failure_carries_its_cause(self, monkeypatch, tmp_path):
+        """'brief failed' told Wei nothing; the reason was one line up in the
+        log. Python leaves the exception at column zero under its indented
+        traceback, and that line must reach the alert."""
+        log = tmp_path / "refresh.log"
+        log.write_text(
+            "── 2026-08-11 06:20:18 ───\n"
+            "Traceback (most recent call last):\n"
+            '  File "cli.py", line 646, in brief\n'
+            "cos.gmail_ledger.LedgerIncomplete: 6 of 4226 threads could "
+            "not be read after retries\n"
+            "  ! brief failed\n"
+            "  done 06:33:56\n"
+        )
+        monkeypatch.setattr(health, "REFRESH_LOG", log)
+        c = health.check_refresh_steps()
+        assert c.status == FAIL
+        assert "6 of 4226 threads" in c.evidence
+        assert "Traceback" not in c.evidence
+
+    def test_quoted_failures_in_the_echoed_report_do_not_count(
+            self, monkeypatch, tmp_path):
+        """The health report is echoed into the log it reads. Its quoted
+        '! step' lines are indented deeper than real ones, and counting them
+        meant the check could never clear."""
+        log = tmp_path / "refresh.log"
+        log.write_text(
+            "── 2026-08-11 06:36:00 ───\n"
+            "  health: NEEDS ATTENTION\n"
+            "    [FAIL] refresh steps: 1 step(s) failed in the last run\n"
+            "          ! brief failed\n"
+            "  done 06:37:00\n"
+        )
+        monkeypatch.setattr(health, "REFRESH_LOG", log)
+        assert health.check_refresh_steps().status == OK
+
+    def test_recent_failures_lists_history_newest_first(
+            self, monkeypatch, tmp_path):
+        log = tmp_path / "refresh.log"
+        log.write_text(
+            "── 2026-08-09 18:49:43 ───\n"
+            "fatal: cannot change to '/nope': No such file or directory\n"
+            "  ! vault: cannot read git status\n"
+            "  done 18:50:00\n"
+            "── 2026-08-11 06:20:18 ───\n"
+            "cos.gmail_ledger.LedgerIncomplete: 6 of 4226 threads\n"
+            "  ! brief failed\n"
+            "  done 06:33:56\n"
+        )
+        monkeypatch.setattr(health, "REFRESH_LOG", log)
+        rows = health.recent_failures()
+        assert [r["step"] for r in rows] == [
+            "brief failed", "vault: cannot read git status"]
+        assert rows[0]["when"] == "2026-08-11 06:20"
+        assert "LedgerIncomplete" in rows[0]["cause"]
+        assert "fatal" in rows[1]["cause"]
+
     def test_only_the_latest_run_is_judged(self, monkeypatch, tmp_path):
         """Yesterday's failure is not today's. Reporting a fixed problem is
         how a report earns the mute button."""
