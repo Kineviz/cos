@@ -159,6 +159,41 @@ _BUILTIN: list[Question] = [
         notes="Acme Dynamics and Zephyr do not exist. An invented answer here "
               "is the most damaging failure this system can have.",
     ),
+    # ---- question kinds (qtype.py): one template each -------------------
+    # Different kinds of question need different treatment, and each needs
+    # its own graded question or a regression in one kind hides inside the
+    # average. Fictional, like r1 — write real ones about your own data.
+    Question(
+        "k1", "sweep",
+        "Which deals are currently on my prospects panel?",
+        must=[["northwind"]],
+        notes="Completeness, not relevance: graded on a member that must "
+              "appear in the enumeration. Replace with your own panel's "
+              "long-standing members.",
+    ),
+    Question(
+        "k2", "timeline",
+        "Catch me up on Northwind — what has happened since June?",
+        must=[["june", "july", "august"]],
+        want_sources=["northwind"],
+        notes="A story over time must carry dates. Grade on facts from both "
+              "ends of the period when you write the real one.",
+    ),
+    Question(
+        "k3", "multihop",
+        "Who introduced me to Morgan at Northwind Analytics?",
+        must=[["no ", "not", "nothing", "cannot", "don't", "unable"]],
+        notes="Two-hop template. Against an empty corpus the honest answer "
+              "is 'no record' — the graded skill is refusing to guess the "
+              "chain. With real data, grade on the actual introducer.",
+    ),
+    Question(
+        "k4", "compare",
+        "Which of my deals should I chase first, and why?",
+        must=[["because", "since", "as "]],
+        notes="A judgement must show its criteria — graded on the presence "
+              "of a reason, not on which deal wins.",
+    ),
 ]
 
 QUESTIONS: list[Question] = _load_private() or _BUILTIN

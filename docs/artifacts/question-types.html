@@ -1,0 +1,244 @@
+<title>Answering by question type — the design</title>
+
+<style>
+  :root {
+    --paper:#F6F5F1; --card:#FFFFFF; --sunk:#ECEAE4;
+    --ink:#201E1B; --ink2:#6A645C; --ink3:#979087; --rule:#E0DCD5;
+    --accent:#22635B; --accent-bg:#E3EFEA; --warn:#8A5A12; --warn-bg:#F6E8CE;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:#141312; --card:#1D1C1A; --sunk:#26241F;
+      --ink:#ECE9E4; --ink2:#A39C93; --ink3:#7B756C; --rule:#312E29;
+      --accent:#72C0AA; --accent-bg:#1E332E; --warn:#DBAA5A; --warn-bg:#3A2E17;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:#141312; --card:#1D1C1A; --sunk:#26241F;
+    --ink:#ECE9E4; --ink2:#A39C93; --ink3:#7B756C; --rule:#312E29;
+    --accent:#72C0AA; --accent-bg:#1E332E; --warn:#DBAA5A; --warn-bg:#3A2E17;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans);
+         font-size:16.5px; line-height:1.6;
+         padding:clamp(24px,5vw,60px) clamp(16px,4vw,32px) 90px; }
+  .wrap { max-width:58rem; margin:0 auto; }
+  header { border-bottom:1px solid var(--rule); padding-bottom:1.6rem; margin-bottom:2.2rem; }
+  .eyebrow { font-family:var(--mono); font-size:11px; letter-spacing:.12em;
+             text-transform:uppercase; color:var(--ink3); margin:0; }
+  h1 { font-size:clamp(26px,5vw,36px); font-weight:680; letter-spacing:-.02em;
+       line-height:1.12; margin:.5rem 0 0; text-wrap:balance; }
+  .deck { color:var(--ink2); margin:.8rem 0 0; max-width:38rem; text-wrap:pretty; }
+  h2 { font-size:clamp(20px,3.4vw,25px); font-weight:660; margin:2.6rem 0 .7rem; }
+  p { max-width:44rem; text-wrap:pretty; }
+  .note { background:var(--sunk); border-radius:8px; padding:.85rem 1.05rem;
+          font-size:15px; max-width:46rem; margin:1.1rem 0; }
+  code { font-family:var(--mono); font-size:.85em; background:var(--sunk);
+         padding:.12em .38em; border-radius:4px; }
+
+  .tblwrap { overflow-x:auto; margin:1.2rem 0; border:1px solid var(--rule);
+             border-radius:10px; background:var(--card); }
+  table { border-collapse:collapse; width:100%; min-width:760px; font-size:14.5px; }
+  th { font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+       color:var(--ink3); text-align:left; padding:.7rem .85rem; border-bottom:1px solid var(--rule); }
+  td { padding:.65rem .85rem; border-bottom:1px solid var(--rule); vertical-align:top; }
+  tr:last-child td { border-bottom:0; }
+  td.t { font-weight:640; white-space:nowrap; }
+  td.ex { font-style:italic; color:var(--ink2); }
+  .tag { display:inline-block; font-family:var(--mono); font-size:10px; letter-spacing:.05em;
+         text-transform:uppercase; border-radius:4px; padding:.15em .45em; white-space:nowrap; }
+  .ok   { color:var(--accent); background:var(--accent-bg); }
+  .new  { color:var(--warn); background:var(--warn-bg); }
+
+  figure { margin:1.4rem 0; background:var(--card); border:1px solid var(--rule);
+           border-radius:10px; padding:clamp(12px,2.5vw,24px); overflow-x:auto; }
+  figure svg { display:block; max-width:100%; height:auto; margin:0 auto; }
+  figcaption { font-size:14px; color:var(--ink2); margin-top:.8rem;
+               border-top:1px solid var(--rule); padding-top:.7rem; max-width:46rem; }
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">COS · design note · 12 August 2026</p>
+  <h1>Not every question deserves the same six pages</h1>
+  <p class="deck">Today every question gets one treatment: find the six best
+  pages, hand them to the AI, get an answer. That is right for half of what
+  gets asked and wrong for the rest. This is the map of question kinds, how
+  each one is best answered, and what we build.</p>
+</header>
+
+<h2>The question kinds</h2>
+<p>Nine kinds cover everything the logs show. Three already have their own
+path; six are about to get one.</p>
+
+<div class="tblwrap">
+<table>
+  <tr><th>Kind</th><th>Example</th><th>The right way to answer</th><th>Status</th></tr>
+  <tr>
+    <td class="t">Instant</td>
+    <td class="ex">"What's today's date?" · "Who's waiting on me?"</td>
+    <td>No AI at all — read the number straight from the data. 0&nbsp;ms.</td>
+    <td><span class="tag ok">built</span></td>
+  </tr>
+  <tr>
+    <td class="t">Action</td>
+    <td class="ex">"Archive Meridian" · "Add these prospects"</td>
+    <td>Not a question. Route to the tools, do it, confirm in one line.</td>
+    <td><span class="tag ok">built today</span></td>
+  </tr>
+  <tr>
+    <td class="t">Lookup</td>
+    <td class="ex">"Who's the decision maker at Northwind?"</td>
+    <td>The current pipeline: six best pages, answer, cite. Fast and right.</td>
+    <td><span class="tag ok">built</span></td>
+  </tr>
+  <tr>
+    <td class="t">Timeline</td>
+    <td class="ex">"What happened with Falcon since June?"</td>
+    <td>Six pages can't hold three months. Pull wide (12–18 pages), order
+        them by date, and ask for the story in time order.</td>
+    <td><span class="tag new">building</span></td>
+  </tr>
+  <tr>
+    <td class="t">Count / sweep</td>
+    <td class="ex">"How many deals mention pricing?" · "List all July meetings"</td>
+    <td>"Best six" is the wrong idea entirely — counting needs everything,
+        not the best. Sweep the structured data (ledger, panels, calendar,
+        date index) and enumerate before writing prose.</td>
+    <td><span class="tag new">building</span></td>
+  </tr>
+  <tr>
+    <td class="t">Multi-hop</td>
+    <td class="ex">"Who introduced me to Sam?" · "Which of Morgan's colleagues saw the demo?"</td>
+    <td>Two questions in a chain: answer the first hop, then search again
+        with what you learned. The brain's people-and-company links are the
+        map; the agent is told to walk them step by step.</td>
+    <td><span class="tag new">building</span></td>
+  </tr>
+  <tr>
+    <td class="t">Absence</td>
+    <td class="ex">"Did we ever invoice Northwind?" · "Anything I promised and not delivered?"</td>
+    <td>The dangerous kind — a thin search plus confidence invents facts.
+        Search wide, then say <b>what was searched</b> before saying "no
+        record", so an honest no is distinguishable from a lazy one.</td>
+    <td><span class="tag new">building</span></td>
+  </tr>
+  <tr>
+    <td class="t">Compare / judge</td>
+    <td class="ex">"Which deal should I chase first?" · "Is this price in line with past deals?"</td>
+    <td>Gather facts per candidate first — one mini-lookup each — then
+        reason across them. Judging from whatever six pages happened to
+        surface skews toward whoever emails the most.</td>
+    <td><span class="tag new">building</span></td>
+  </tr>
+  <tr>
+    <td class="t">Multi-part</td>
+    <td class="ex">"When is the talk due, and who has the draft?"</td>
+    <td>Split it. Answer every part, and check that every part got
+        answered — the second clause is what silently drops today.</td>
+    <td><span class="tag new">building</span></td>
+  </tr>
+</table>
+</div>
+
+<h2>The harness change — a router, then playbooks</h2>
+<p>What we take from oh-my-pi's supervisor idea, adapted: the "supervisor" here
+is <b>cheap code, not another AI</b>. String rules sort the question in
+under a millisecond (the same trick that fixed question-vs-action this
+morning); each kind then gets its own playbook — how wide to search, in what
+order, and a short set of marching orders in the prompt. The expensive part,
+reasoning across steps, stays inside the one agent, which already knows how
+to use the search and graph tools when told to.</p>
+
+<figure>
+  <svg viewBox="0 0 880 300" role="img" aria-label="A question flows through a router into one of several playbooks, each shaping retrieval and instructions differently, before one agent answers.">
+    <defs>
+      <marker id="q1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+      </marker>
+      <marker id="q1g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" style="fill:var(--accent)"/>
+      </marker>
+    </defs>
+    <g fill="none" stroke="currentColor" stroke-width="1.4">
+      <rect x="16" y="118" width="120" height="60" rx="8"/>
+      <rect x="216" y="112" width="140" height="72" rx="8" style="stroke:var(--accent)" stroke-width="2"/>
+      <rect x="446" y="16"  width="180" height="44" rx="8"/>
+      <rect x="446" y="72"  width="180" height="44" rx="8"/>
+      <rect x="446" y="128" width="180" height="44" rx="8"/>
+      <rect x="446" y="184" width="180" height="44" rx="8"/>
+      <rect x="446" y="240" width="180" height="44" rx="8"/>
+      <rect x="706" y="112" width="158" height="72" rx="8"/>
+      <line x1="136" y1="148" x2="212" y2="148" marker-end="url(#q1)"/>
+      <line x1="356" y1="128" x2="442" y2="42"  style="stroke:var(--accent)" marker-end="url(#q1g)"/>
+      <line x1="356" y1="138" x2="442" y2="94"  style="stroke:var(--accent)" marker-end="url(#q1g)"/>
+      <line x1="356" y1="148" x2="442" y2="150" style="stroke:var(--accent)" marker-end="url(#q1g)"/>
+      <line x1="356" y1="158" x2="442" y2="206" style="stroke:var(--accent)" marker-end="url(#q1g)"/>
+      <line x1="356" y1="168" x2="442" y2="262" style="stroke:var(--accent)" marker-end="url(#q1g)"/>
+      <line x1="626" y1="38"  x2="702" y2="128" marker-end="url(#q1)"/>
+      <line x1="626" y1="94"  x2="702" y2="140" marker-end="url(#q1)"/>
+      <line x1="626" y1="150" x2="702" y2="148" marker-end="url(#q1)"/>
+      <line x1="626" y1="206" x2="702" y2="156" marker-end="url(#q1)"/>
+      <line x1="626" y1="262" x2="702" y2="168" marker-end="url(#q1)"/>
+    </g>
+    <g font-size="13.5" fill="currentColor" font-weight="600" text-anchor="middle">
+      <text x="76" y="152">question</text>
+      <text x="286" y="141" style="fill:var(--accent)">router</text>
+      <text x="536" y="43">lookup · 6 pages</text>
+      <text x="536" y="99">timeline · 16, dated</text>
+      <text x="536" y="155">sweep · enumerate</text>
+      <text x="536" y="211">multi-hop · walk links</text>
+      <text x="536" y="267">absence · search wide</text>
+      <text x="786" y="141">one agent</text>
+      <text x="786" y="158">answers</text>
+    </g>
+    <g font-size="11.5" fill="currentColor" opacity=".72" text-anchor="middle">
+      <text x="286" y="160">cheap string rules,</text>
+      <text x="286" y="174">&lt;1 ms, logged</text>
+      <text x="786" y="176">with that playbook's</text>
+      <text x="786" y="190">marching orders</text>
+    </g>
+  </svg>
+  <figcaption>The router costs nothing and is auditable — every routing
+  decision is logged with the rule that made it, so a misroute is findable
+  the same way a misfiled action is. Compare and multi-part reuse the same
+  shape: wider retrieval plus their own marching orders.</figcaption>
+</figure>
+
+<div class="note"><b>Why not a real multi-agent setup first?</b> A supervisor
+model that plans, spawns worker agents, and judges their answers would add
+10–30 seconds and a second bill to every question, including the easy
+majority. The median answer is 11 seconds today and that is worth
+protecting. The plan: routing + playbooks first, measure, and reach for
+true multi-turn decomposition only where the benchmark says playbooks
+aren't enough. The harness is built so that step is an addition, not a
+rewrite.</div>
+
+<h2>Multi-turn, where it earns its place</h2>
+<p>Two places already justify a second turn, and both are bounded:</p>
+<p><b>Ambiguity.</b> "What about the pilot?" with three pilots in flight
+should cost you one short counter-question, not a guess. The agent is
+allowed one clarifying question when the target is genuinely ambiguous —
+the same rule the drafting tool has used from day one.</p>
+<p><b>Self-check on the risky kinds.</b> For absence and multi-part answers,
+the playbook ends with a check: "before replying — did you answer every
+part? did you name what you searched?" One instruction, not a second
+agent; the eval loop will tell us if it needs teeth.</p>
+
+<h2>How we know it worked</h2>
+<p>The benchmark grows a category per kind — count, multi-hop, compare,
+multi-part — alongside the existing recall, temporal and no-data traps.
+Baseline runs before the change ship with it; the nightly loop then owns
+the numbers: a kind that regresses files itself as work, and the
+answers-too-simply complaint becomes a graded score instead of a feeling.</p>
+
+<footer style="border-top:1px solid var(--rule); margin-top:3rem; padding-top:1rem; font-size:13.5px; color:var(--ink3)">
+  COS design note · names in examples are the repository's fictional cast ·
+  companion pages: <a href="https://claude.ai/code/artifact/a478ce87-0064-4a4a-a843-774c878b4371" style="color:inherit">system overview</a> ·
+  <a href="https://claude.ai/code/artifact/20d172cf-e825-40dd-9412-d00844230ce9" style="color:inherit">how answers are found</a>
+</footer>
+
+</div>

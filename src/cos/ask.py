@@ -37,7 +37,7 @@ from datetime import date as _date, datetime
 from itertools import zip_longest
 from pathlib import Path
 
-from . import dateindex, instant, intent, retrieve, when
+from . import dateindex, instant, intent, qtype, retrieve, when
 
 HERMES_DIR = Path.home() / ".hermes"
 HERMES_PY = HERMES_DIR / "hermes-agent" / "venv" / "bin" / "python"
@@ -661,6 +661,10 @@ class Job:
     # three separate steps need it: the cache, the prompt, and the log.
     intent: str = "question"
     destructive: bool = False
+    # What KIND of question — see qtype.py. Decides how wide retrieval goes,
+    # whether the sources arrive in date order, and which marching orders the
+    # prompt carries. Lookup is the old behaviour, unchanged.
+    qtype: str = "lookup"
     # Where the time went. "It seems slow" is not something you can improve
     # against; this is the breakdown behind the one number the page shows.
     profile: dict = field(default_factory=dict)
@@ -678,7 +682,7 @@ class Job:
             "hits": self.hits, "follow_up": self.follow_up,
             "session": self.session,
             "queued": self.queued, "queue_position": self.queue_position,
-            "intent": self.intent,
+            "intent": self.intent, "qtype": self.qtype,
             "profile": self.profile,
         }
 
@@ -986,6 +990,11 @@ def _prompt(job: Job) -> str:
     blocks = [_now_line()]
     if job.intent == "action":
         blocks.append(_ACTION_RULE + (_DESTRUCTIVE_RULE if job.destructive else ""))
+    elif job.qtype in qtype.PLAYBOOK:
+        # The marching orders for this KIND of question — what a good answer
+        # is shaped like, on top of the sources below. Lookup adds nothing;
+        # the default treatment is already right for it.
+        blocks.append(qtype.PLAYBOOK[job.qtype])
     if job.screen:
         # "Add" was missing from this list once, and the model followed the
         # enumeration literally: told "add these six prospects", it summarised
@@ -1028,7 +1037,17 @@ def _run(job: Job) -> None:
     # Search first, BEFORE queueing. It is cheap, it does not contend, and it
     # means a question waiting its turn still shows real sources immediately
     # rather than sitting blank.
-    hits, clock = search_profiled(job.question)
+    #
+    # How wide depends on the kind: a lookup keeps the tuned six; a count, a
+    # story over time or a "did we ever" gets more, because their failure
+    # mode is a missing page, not a noisy one.
+    hits, clock = search_profiled(job.question,
+                                  limit=qtype.WIDTH.get(job.qtype, 6))
+    if job.qtype == "timeline":
+        # A story reads oldest-first. Undated pages sink to the end rather
+        # than being dropped — the page that names no date may still hold
+        # the beat that matters.
+        hits.sort(key=lambda h: (h.get("date") is None, h.get("date") or ""))
     with _lock:
         job.hits = hits
         job.profile["search"] = clock
@@ -1178,6 +1197,16 @@ def start(question: str, fresh: bool = False, session: str = "",
     # and "it summarised instead of doing it" is not diagnosable without it.
     job.profile["intent"] = decided.kind
     job.profile["intent_reason"] = decided.reason
+
+    # And what KIND of question, for the ones that are questions. Six best
+    # pages is right for a lookup and wrong for a count, a story over time,
+    # or "did we ever…" — each kind gets its own retrieval width and
+    # marching orders (qtype.py).
+    if not decided.is_action:
+        qt = qtype.classify(question)
+        job.qtype = qt.kind
+        job.profile["qtype"] = qt.kind
+        job.profile["qtype_reason"] = qt.reason
 
     # An action must RUN. Serving "Archived: Insight2" out of the cache
     # because the same words were typed last week confirms work that never
