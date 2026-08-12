@@ -37,7 +37,7 @@ from datetime import date as _date, datetime
 from itertools import zip_longest
 from pathlib import Path
 
-from . import dateindex, instant, retrieve, when
+from . import dateindex, instant, intent, retrieve, when
 
 HERMES_DIR = Path.home() / ".hermes"
 HERMES_PY = HERMES_DIR / "hermes-agent" / "venv" / "bin" / "python"
@@ -656,6 +656,11 @@ class Job:
     # question about the rows in front of you, and without them it was being
     # answered against whatever the last chat happened to be about.
     screen: str = ""
+    # "question" or "action" — see intent.py. An action is executed and
+    # confirmed; a question is retrieved and answered. Kept on the job because
+    # three separate steps need it: the cache, the prompt, and the log.
+    intent: str = "question"
+    destructive: bool = False
     # Where the time went. "It seems slow" is not something you can improve
     # against; this is the breakdown behind the one number the page shows.
     profile: dict = field(default_factory=dict)
@@ -673,6 +678,7 @@ class Job:
             "hits": self.hits, "follow_up": self.follow_up,
             "session": self.session,
             "queued": self.queued, "queue_position": self.queue_position,
+            "intent": self.intent,
             "profile": self.profile,
         }
 
@@ -908,15 +914,28 @@ def _facts() -> str:
     return "\n".join(bits)
 
 
-def _sources_block(hits: list[dict]) -> str:
+def _sources_block(hits: list[dict], action: bool = False) -> str:
     """The pages already retrieved, handed over rather than thrown away.
 
     `search()` finds the six best pages in under a second and the UI shows
     them — and then the model went and searched again through MCP for the same
     thing. Naming them costs nothing and removes a whole tool round trip.
+
+    For an instruction the same pages are still useful — they are how the
+    target gets identified — but the heading must not say "answer from
+    these". Told to answer from a page, the model answers instead of acting,
+    which is the exact failure this pipeline was reported for.
     """
     if not hits:
         return ""
+    if action:
+        lines = ["Background only — pages that mention what the instruction "
+                 "refers to, in case you need them to identify the right "
+                 "item. They are not the reply; carry out the instruction:"]
+        for h in hits[:6]:
+            date = f" ({h['date']})" if h.get("date") else ""
+            lines.append(f"- {h['slug']}{date}")
+        return "\n".join(lines)
     lines = ["Already retrieved for this question, with the matching text "
              "included. Answer from these and cite them inline by slug. Do "
              "not open them again — what you would read is below. Fetch "
@@ -930,6 +949,31 @@ def _sources_block(hits: list[dict]) -> str:
     return "\n".join(lines)
 
 
+# What an instruction gets told, on top of everything a question gets.
+#
+# The panel block below already said this for panel writes, and it was not
+# enough on its own: it only appears when a panel is on screen, so "archive
+# Insight2" typed into the ordinary chat box still went down the answer path
+# and came back as a description of Insight2. This states the intent once,
+# wherever it was typed, and it is the first thing after the date so nothing
+# retrieved can bury it.
+_ACTION_RULE = (
+    "This input is an INSTRUCTION, not a question. Carry it out with your "
+    "tools — panel_add, panel_set, panel_done, panel_focus, panel_create, "
+    "replied_elsewhere — one call per item, and then reply with one short "
+    "line saying what changed. Do not answer it with a search result, a "
+    "summary of the thing you were asked to change, or a promise to do it "
+    "later. If you cannot find the item, say so plainly and name what you "
+    "looked in.")
+# Reversible things are done and then reported; irreversible ones are asked
+# about first. Archiving and marking done are reversible in the dashboard, so
+# they are deliberately NOT in this class — a confirmation prompt in front of
+# the most common action would make the panel chat useless.
+_DESTRUCTIVE_RULE = (
+    " This one deletes or overwrites something and cannot be undone: say "
+    "exactly what you are about to do and ask before doing it.")
+
+
 def _prompt(job: Job) -> str:
     """The question, with the date and enough of the conversation for a
     follow-up to mean something.
@@ -940,6 +984,8 @@ def _prompt(job: Job) -> str:
     assistant does not have.
     """
     blocks = [_now_line()]
+    if job.intent == "action":
+        blocks.append(_ACTION_RULE + (_DESTRUCTIVE_RULE if job.destructive else ""))
     if job.screen:
         # "Add" was missing from this list once, and the model followed the
         # enumeration literally: told "add these six prospects", it summarised
@@ -957,7 +1003,7 @@ def _prompt(job: Job) -> str:
         facts = _facts()
         if facts:
             blocks.append(facts)
-    src = _sources_block(job.hits)
+    src = _sources_block(job.hits, action=job.intent == "action")
     if src:
         blocks.append(src)
     head = "\n\n".join(blocks)
@@ -1086,7 +1132,9 @@ def _synthesise(job: Job) -> None:
             job.answer = answer
             job.follow_up = follow
         job.finished = time.time()
-    if job.status == "done" and not job.screen:
+    # An instruction's answer is a receipt for one run — "Added: X" — and
+    # replaying it for the same words later would report a change nobody made.
+    if job.status == "done" and not job.screen and job.intent != "action":
         _remember(job.question, job.answer, job.hits, job.follow_up)
     _record(job)
 
@@ -1120,6 +1168,24 @@ def start(question: str, fresh: bool = False, session: str = "",
     job = Job(id=uuid.uuid4().hex[:12], question=question, session=session,
               screen=(screen or "")[:6000])
 
+    # Decide what KIND of input this is before anything else looks at it. The
+    # cache, the instant answers and the prompt all branch on it, and each of
+    # them is wrong for an instruction in a different way.
+    decided = intent.classify(question, screen=job.screen)
+    job.intent = decided.kind
+    job.destructive = decided.destructive
+    # Logged so misroutes are findable later — the spec asks for exactly this,
+    # and "it summarised instead of doing it" is not diagnosable without it.
+    job.profile["intent"] = decided.kind
+    job.profile["intent_reason"] = decided.reason
+
+    # An action must RUN. Serving "Archived: Insight2" out of the cache
+    # because the same words were typed last week confirms work that never
+    # happened — the failure class this project keeps finding, applied to
+    # writes instead of reads.
+    if decided.is_action:
+        fresh = True
+
     # A follow-up is not the same question twice: its answer depends on what
     # came before it, so the cache must not serve the standalone answer here.
     if session and _has_context(session):
@@ -1141,8 +1207,9 @@ def start(question: str, fresh: bool = False, session: str = "",
     # Only where the snapshot holds the whole answer, and only where nothing
     # else was asked; see `instant`. A follow-up inside a conversation always
     # goes to the assistant, because "and which should I do first?" is not this
-    # kind of question.
-    if not session:
+    # kind of question. Neither does an instruction: the snapshot can say what
+    # the to-do list holds, but it cannot add to it.
+    if not session and not decided.is_action:
         quick = instant.answer(question)
         if quick:
             job.status = "done"
