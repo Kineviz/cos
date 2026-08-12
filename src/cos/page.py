@@ -519,8 +519,13 @@ td.num{font-variant-numeric:tabular-nums;white-space:nowrap;width:1%}
   .railtoggle{display:inline-flex}
   /* The reopener is shown unconditionally on a phone, but the padding that
      made room for it was gated on .app.shut — so it landed exactly on TODAY's
-     collapse chevron and stole the tap. */
-  .scroll{padding:calc(var(--s3) + 26px) var(--s4) var(--s3)}
+     collapse chevron and stole the tap. 26px was four pixels short: the button
+     ends at y=42 and the first header still began at y=38, so the top of the
+     chevron was under it. 34px clears the button outright. */
+  .scroll{padding:calc(var(--s3) + 34px) var(--s4) var(--s3)}
+  /* The rail is a fixed-width overlay here, so dragging its edge resizes
+     nothing — the handle only sat over the rail swallowing swipes. */
+  .grab{display:none}
   .composer{padding:var(--s2) var(--s4) calc(var(--s3) + env(safe-area-inset-bottom))}
   .r{grid-template-columns:20px minmax(0,1fr) auto;column-gap:10px}
   .grip{display:none}
@@ -529,14 +534,45 @@ td.num{font-variant-numeric:tabular-nums;white-space:nowrap;width:1%}
      Wrap to a second line instead. */
   .r{grid-template-rows:auto}
   .txt{flex-direction:column;align-items:flex-start;gap:1px;padding:6px 0}
-  .dtl{display:block;flex:none;max-width:100%;white-space:normal}
+  /* Wrapping brought the detail back, but a mail subject plus a snippet ran
+     four lines at 390px and pushed the next two tasks off the screen. Two
+     lines then an ellipsis: the detail is legible and the density Wei chose
+     this skeleton for survives. */
+  .dtl{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    overflow:hidden;flex:none;max-width:100%;white-space:normal}
   .dtl::before{content:none}
   .ttl{font-size:14px;white-space:normal}
+  /* Drawn at 18px, hit at 44px. A finger is not a cursor, and ticking things
+     off is the one thing done most on a phone. */
   .tick{width:18px;height:18px}
-  .pnl{grid-column:2/-1}
-  .add{grid-template-columns:20px 1fr;height:30px}
+  .tick::after{inset:-13px}
+  /* Was indented into the title column, so a note field and six buttons
+     shared 320px of a 390px screen. The panel starts at the row's own edge
+     and gets the 30px back. */
+  .pnl{grid-column:1/-1;padding-bottom:var(--s3)}
+  .pnl .note{padding:8px 10px}
+  /* Move / Stage / Attention are the ONLY way to move a row on a phone:
+     dragging needs the grip, and the grip is hidden here. They were 21px
+     tall and 5px apart, which is a miss or a wrong button. The label takes
+     its own line so the first button is not squeezed against it. */
+  .mv{gap:8px}
+  .mv b{flex:0 0 100%}
+  .mv button{padding:8px 14px;font-size:13px;min-height:36px}
+  /* A group header is a tap target too — collapsing Waiting-on-you is how
+     the list fits a screen. Let it wrap rather than crush the summary. */
+  .ghead{height:auto;min-height:36px;flex-wrap:wrap}
+  .more{height:36px;padding-left:30px;font-size:13px}
+  .add{grid-template-columns:20px 1fr;height:40px}
   .add .plus{grid-column:1}
-  .cbox textarea,.spanel input,.spanel textarea{font-size:16px}
+  /* Nothing reveals on hover here, so a placeholder drawn in the hairline
+     colour means the add-a-task line is invisible until you tap it. */
+  .add input::placeholder{color:var(--edge)}
+  /* Under 16px, iOS Safari zooms the whole page on focus and does not zoom
+     back — every note added cost a pinch. The composer and the settings
+     sheet already opted out; the row note, the add line, the chat search and
+     the rename box did not. */
+  .cbox textarea,.spanel input,.spanel textarea,
+  .pnl .note,.add input,.srchbox input,.ses input.ren{font-size:16px}
   .sheet{left:0;width:100%;max-width:none;border-left:0;transform:translateY(24px)}
   .sheet.on{transform:none}
   .sbody{flex-direction:column}
@@ -545,8 +581,12 @@ td.num{font-variant-numeric:tabular-nums;white-space:nowrap;width:1%}
   .srail button{width:auto;white-space:nowrap}
   .row2{grid-template-columns:1fr}
 }
+/* A finger cannot drag: the grip is hidden on a phone and HTML5 drag never
+   fires from touch anyway. So the empty attention list has to name the
+   control that does work there instead of the one that does not. */
+.deskonly{display:inline}
 .mobonly{display:none}
-@media(max-width:820px){.mobonly{display:flex}}
+@media(max-width:820px){.deskonly{display:none}.mobonly{display:inline}}
 </style>
 
 <div class="app" id="app">
@@ -922,8 +962,12 @@ function renderList(){
   if(D.stale) h+=`<div class="banner">These numbers are ${D.age_minutes} minutes old — the refresh may be stuck.</div>`;
   (A.warnings||[]).forEach(w=>h+=`<div class="banner">${esc(w)}</div>`);
   h+=BUCKETS.map(([k,l])=>group(k,l,mine.filter(i=>i.bucket===k),{add:true})).join('');
+  // Clamped. With fewer than five people waiting the subtraction went
+  // negative, so the collapsed header read "WAITING ON YOU  -1" and the group
+  // offered a "+ -3 more" button — on a phone that header is often the only
+  // part of the group on screen.
   if(mail.length) h+=group('__mail','Waiting on you',mail.slice(0,showMail),
-    {src:'mail',open:false,more:mail.length-showMail,
+    {src:'mail',open:false,more:Math.max(0,mail.length-showMail),
      sum:`oldest ${mail[0].days}d · ${over} over 30d`});
   if(done.length) h+=group('__done','Done',done,{open:false});
   const bad=(D.health||[]).filter(c=>c.status!=='ok');
@@ -1005,7 +1049,7 @@ function renderPanel(pid){
     <button class="ghead" aria-expanded="${hopen?'true':'false'}"><span class="i chev">${ICO.chev}</span><span>Needs attention now</span>
       <span class="cnt">${hot.length}</span></button>
     <div class="rows">${hot.map(p=>prow(p,true,states)).join('')
-      ||'<div class="empty">Drag an item here, or open one and press the star.</div>'}</div>
+      ||`<div class="empty"><span class="deskonly">Drag an item here, or open one and press the star.</span><span class="mobonly">Tap a row, then press ☆ Needs attention now.</span></div>`}</div>
   </div>`;
 
   h+=groups.map(g=>{

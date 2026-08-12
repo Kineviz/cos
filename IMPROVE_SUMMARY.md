@@ -1,65 +1,71 @@
-# What changed
+# The dashboard on a phone
 
-## Kiran now tells an instruction from a question before it acts
+**What changed:** the Tasks panel and the deal panels now work at phone width.
+Nothing moved on a laptop — every change is inside the narrow-screen rules.
 
-**The problem.** You typed "archive Insight2" and got a summary of Insight2.
-You typed "add these prospects" and got a description of the panel. The ask
-pipeline had one route for everything — search the brain, write prose, cite
-the pages — so anything you typed came back as an answer, even when it was an
-order.
+## What was wrong, and what it does now
 
-**The fix.** Every input is now sorted into one of two kinds before anything
-else happens:
+**Typing a note zoomed the whole page.** On an iPhone, tapping any text box
+smaller than 16px makes Safari zoom in and never zoom back out, so adding a
+note meant pinching the page back to size afterwards. The ask box and the
+settings screen were already exempt; the note field, the add-a-task line, the
+chat search and the rename box were not. They are now.
 
-- **A question** — "what's open with Constella?" — goes exactly where it went
-  before. Nothing about that path changed.
-- **An instruction** — "archive Insight2", "mark Europol unblocked", "add task
-  to hand the dashboard to Jacob" — is told, in the first line of the prompt,
-  to carry it out with the panel tools and then say in one line what changed.
-  It is explicitly told not to answer with a summary or a promise.
+**The Move buttons were too small to hit.** Today / Soon / Back list — and
+Stage on a deal panel — were 21 pixels tall with 5 pixels between them. On a
+phone these are the *only* way to move a row: dragging needs the little grip
+handle, which is hidden on a phone, and a finger cannot start a drag anyway.
+They are now 36 pixels tall with the label on its own line above them, so
+Delete and Archive are nowhere near the button you meant to press.
 
-Three smaller things fall out of that:
+**The tick box was hard to tap.** It still looks the same size; the invisible
+target around it is now 44 pixels, which is the size Apple says a thumb hits
+reliably.
 
-- **Politeness no longer hides the verb.** "Can you archive Insight2?" has a
-  question mark and is still an instruction. That is how most people actually
-  type, so it was the biggest single source of missed actions.
-- **Instructions are never answered from the cache.** Before, typing the same
-  instruction twice could return the earlier "Archived: Insight2" without
-  running anything — a receipt for work that never happened. Instructions now
-  always run, and their confirmations are never saved.
-- **Deleting asks first.** "Delete the Northwind row" is flagged as
-  irreversible, and Kiran states what it is about to do and waits. Archiving
-  and marking done are *not* in that class — both are undoable in the
-  dashboard, and a confirmation prompt in front of the commonest action would
-  make the panel chat annoying.
+**Opening a row wasted a third of the screen.** The expanded panel started
+under the title instead of at the left edge, so a note field and six buttons
+shared 320 of your 390 pixels. It now uses the full width.
 
-**On the panel specifically**, the shorthand "Constella: ball with Alberto" is
-read as a write, because with those rows on screen it cannot mean anything
-else. Typed into the ordinary chat box, the same words are treated as you
-thinking out loud — there is no field there to write them to.
+**Long email subjects pushed everything else off screen.** A subject plus a
+snippet could run four lines. It stops at two now, with "…" — you keep the
+density you chose this layout for.
 
-**When it cannot tell, it says question.** A question wrongly treated as an
-instruction wastes a tool call. An instruction wrongly treated as a question
-silently does nothing, and you find out days later that the deal never moved.
+**The menu button sat on the first heading.** The button that opens the left
+panel overlapped the top of TODAY's collapse arrow by four pixels and stole
+the tap. Fixed.
 
-## Evidence it works
+**"Waiting on you −1".** When fewer than five people were waiting, that
+heading counted backwards and offered a "+ −3 more" button. It was a
+subtraction with no floor. Now it says 2 when two people are waiting.
 
-- 33 new tests for the sorting itself, covering the instructions you reported
-  ("archive Insight2", "add these prospects"), the polite forms, the panel
-  shorthand, and 18 questions that must *not* flip into instructions.
-- 10 new tests for the routing: an instruction reaches the prompt marked as
-  one, never reads or writes the cache, and cannot be swallowed by the
-  instant-answer shortcut; a question behaves exactly as before.
-- The whole suite passes: 491 tests, 2 seconds.
-- All 17 benchmark questions still sort as questions, so the answer path they
-  measure is unchanged — same prompt, same cache, same shortcuts. There was
-  nothing for a benchmark run to move.
+**"Drag an item here" was a lie on a phone.** The empty attention list told
+you to do something touch cannot do. On a phone it now says "Tap a row, then
+press ☆ Needs attention now."
 
-# What I did not fix
+Two smaller things: the rail's resize handle is hidden on a phone (it resized
+nothing there and swallowed swipes), and the "Add to Today…" prompt is now
+visible rather than drawn in the hairline colour — on a laptop it appears on
+hover, and a phone has no hover.
 
-**The 176-second answer.** That one was your note about building a
-self-improving application, and the time went into the assistant reading and
-weighing a lot of pages to capture a strategic brief properly. It is not a bug
-with a fix in the code — it is a question about how long a "capture this" turn
-is allowed to take, and what it should be allowed to skip. That is your call,
-not mine, so I left it alone.
+## The evidence
+
+I rendered the real dashboard in a browser at 390 pixels wide — an iPhone's
+width — against made-up data (Northwind, Acme, Morgan, Pat), and checked the
+task list, an opened row, an opened deal, and the waiting-on-you group. The
+screenshots are what the fixes above are based on; the "−1" heading was found
+that way, not by reading code.
+
+There are also six new automated tests that read the shipped stylesheet and
+fail if any of these slips back: no typeable field under 16px, no thumb
+control under 36px, the tick target at 44px, the panel at full width, the
+detail capped at two lines, and the waiting count clamped. All six fail on the
+old file and pass on the new one. The whole suite — 497 tests — passes.
+
+## What I did not fix
+
+**"Auto-improving application" took 176 seconds to answer.** I left this
+alone. That question is a genuinely strategic one, and answering it is a full
+assistant run reading your mail and notes; there is no bug to point at, and I
+cannot reproduce the timing offline. Making it faster is a product decision —
+answer briefly first and fill in detail after, or route strategy questions to
+a shorter path — not something to change quietly inside a layout fix.
