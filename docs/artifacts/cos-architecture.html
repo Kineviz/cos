@@ -1,0 +1,600 @@
+<title>COS — how the whole thing works</title>
+
+<style>
+  :root {
+    --paper:  #F6F5F1;
+    --card:   #FFFFFF;
+    --sunk:   #ECEAE4;
+    --ink:    #201E1B;
+    --ink2:   #6A645C;
+    --ink3:   #979087;
+    --rule:   #E0DCD5;
+    --accent: #22635B;
+    --accent-bg: #E3EFEA;
+    --warn:   #8A5A12;
+    --warn-bg:#F6E8CE;
+    --bad:    #9B3B34;
+    --bad-bg: #F3DCDA;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:#141312; --card:#1D1C1A; --sunk:#26241F;
+      --ink:#ECE9E4; --ink2:#A39C93; --ink3:#7B756C;
+      --rule:#312E29;
+      --accent:#72C0AA; --accent-bg:#1E332E;
+      --warn:#DBAA5A; --warn-bg:#3A2E17;
+      --bad:#E0918A; --bad-bg:#3A2321;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:#141312; --card:#1D1C1A; --sunk:#26241F;
+    --ink:#ECE9E4; --ink2:#A39C93; --ink3:#7B756C;
+    --rule:#312E29;
+    --accent:#72C0AA; --accent-bg:#1E332E;
+    --warn:#DBAA5A; --warn-bg:#3A2E17;
+    --bad:#E0918A; --bad-bg:#3A2321;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--sans); font-size: 16.5px; line-height: 1.6;
+    padding: clamp(24px,5vw,60px) clamp(16px,4vw,32px) 90px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 54rem; margin: 0 auto; }
+
+  header { border-bottom: 1px solid var(--rule); padding-bottom: 1.8rem; margin-bottom: 2.4rem; }
+  .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .12em;
+             text-transform: uppercase; color: var(--ink3); margin: 0; }
+  h1 { font-size: clamp(28px,5.5vw,40px); font-weight: 680; letter-spacing: -.025em;
+       line-height: 1.1; margin: .5rem 0 0; text-wrap: balance; }
+  .deck { color: var(--ink2); margin: .9rem 0 0; max-width: 36rem; font-size: 17.5px; text-wrap: pretty; }
+
+  section { margin: 3.2rem 0; }
+  .secno { font-family: var(--mono); font-size: 12px; color: var(--accent);
+           letter-spacing: .1em; }
+  h2 { font-size: clamp(21px,3.5vw,26px); font-weight: 660; letter-spacing: -.015em;
+       margin: .25rem 0 .8rem; text-wrap: balance; }
+  p { margin: .8rem 0; max-width: 42rem; text-wrap: pretty; }
+  p b { font-weight: 640; }
+  .quiet { color: var(--ink2); }
+  .term { border-bottom: 1px dotted var(--ink3); cursor: help; }
+
+  figure { margin: 1.4rem 0; background: var(--card); border: 1px solid var(--rule);
+           border-radius: 10px; padding: clamp(12px,2.5vw,24px); overflow-x: auto; }
+  figure svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+  figcaption { font-size: 14px; color: var(--ink2); margin-top: .9rem;
+               border-top: 1px solid var(--rule); padding-top: .7rem; max-width: 44rem; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr));
+           gap: .8rem; margin: 1.3rem 0; }
+  .card { background: var(--card); border: 1px solid var(--rule); border-radius: 8px;
+          padding: .9rem 1rem 1rem; }
+  .card h3 { margin: 0 0 .3rem; font-size: 15.5px; font-weight: 650; }
+  .card p { margin: 0; font-size: 14.5px; color: var(--ink2); }
+  .chip { display: inline-block; font-family: var(--mono); font-size: 10.5px;
+          letter-spacing: .06em; text-transform: uppercase; border-radius: 4px;
+          padding: .18em .5em; margin-bottom: .5rem; }
+  .c-chat { color: var(--accent); background: var(--accent-bg); }
+  .c-clock { color: var(--warn); background: var(--warn-bg); }
+
+  .note { background: var(--sunk); border-radius: 8px; padding: .85rem 1.05rem;
+          font-size: 15px; max-width: 44rem; margin: 1.1rem 0; }
+  .note b { font-weight: 650; }
+
+  footer { border-top: 1px solid var(--rule); margin-top: 3.5rem; padding-top: 1.2rem;
+           font-size: 13.5px; color: var(--ink3); }
+  code { font-family: var(--mono); font-size: .85em; background: var(--sunk);
+         padding: .12em .38em; border-radius: 4px; }
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">COS · Chief-of-staff Operation System · August 2026</p>
+  <h1>How the whole thing works</h1>
+  <p class="deck">Five pictures: what the pieces are, how information moves,
+  what the assistant does, how it fixes and improves itself, and how the
+  dashboard grows new panels when you ask.</p>
+</header>
+
+<!-- ══════════════════════════ 1 · ARCHITECTURE ═══════════════════════ -->
+<section>
+  <p class="secno">01</p>
+  <h2>The architecture — four pieces</h2>
+  <p>Your mail, calendar and notes stay where they are. A small program
+  copies what is new into a <b>brain</b> — a folder of small, searchable text
+  pages. Two things read that brain: <b>Kiran</b>, the assistant you chat
+  with, and the <b>dashboard</b> in your browser. A <b>watchdog</b> checks
+  that all of this is actually running, and texts you when it is not.</p>
+
+  <figure>
+    <svg viewBox="0 0 880 430" role="img" aria-label="Diagram: mail, calendar and notes feed the brain every 15 minutes; Kiran and the dashboard read the brain; a watchdog texts your phone when something breaks.">
+      <defs>
+        <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+        </marker>
+        <marker id="a1g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" style="fill:var(--accent)"/>
+        </marker>
+      </defs>
+      <g fill="none" stroke="currentColor" stroke-width="1.4">
+        <!-- sources -->
+        <rect x="20" y="40" width="150" height="52" rx="8"/>
+        <rect x="20" y="112" width="150" height="52" rx="8"/>
+        <rect x="20" y="184" width="150" height="52" rx="8"/>
+        <!-- brain -->
+        <rect x="330" y="88" width="200" height="112" rx="10" style="stroke:var(--accent)" stroke-width="2"/>
+        <!-- readers -->
+        <rect x="660" y="30" width="190" height="66" rx="8"/>
+        <rect x="660" y="126" width="190" height="66" rx="8"/>
+        <!-- watchdog -->
+        <rect x="330" y="300" width="200" height="62" rx="8" style="stroke:var(--warn)"/>
+        <rect x="660" y="300" width="190" height="62" rx="8"/>
+        <!-- arrows -->
+        <line x1="170" y1="66" x2="322" y2="118" marker-end="url(#a1)"/>
+        <line x1="170" y1="138" x2="322" y2="142" marker-end="url(#a1)"/>
+        <line x1="170" y1="210" x2="322" y2="168" marker-end="url(#a1)"/>
+        <line x1="530" y1="118" x2="652" y2="70" style="stroke:var(--accent)" marker-end="url(#a1g)"/>
+        <line x1="530" y1="166" x2="652" y2="156" style="stroke:var(--accent)" marker-end="url(#a1g)"/>
+        <line x1="430" y1="200" x2="430" y2="292" stroke-dasharray="5 4"/>
+        <line x1="530" y1="331" x2="652" y2="331" style="stroke:var(--warn)" stroke-dasharray="5 4" marker-end="url(#a1)"/>
+      </g>
+      <g font-size="14" fill="currentColor" font-weight="600">
+        <text x="95" y="63" text-anchor="middle">Gmail</text>
+        <text x="95" y="135" text-anchor="middle">Calendar</text>
+        <text x="95" y="207" text-anchor="middle">Notes</text>
+        <text x="430" y="130" text-anchor="middle" style="fill:var(--accent)">The brain</text>
+        <text x="755" y="55" text-anchor="middle">Kiran</text>
+        <text x="755" y="151" text-anchor="middle">Dashboard</text>
+        <text x="430" y="325" text-anchor="middle" style="fill:var(--warn)">Watchdog</text>
+        <text x="755" y="325" text-anchor="middle">Your phone</text>
+      </g>
+      <g font-size="12" fill="currentColor" opacity=".72">
+        <text x="95" y="81" text-anchor="middle">read-only</text>
+        <text x="95" y="153" text-anchor="middle">read-only</text>
+        <text x="95" y="225" text-anchor="middle">Obsidian, saved for you</text>
+        <text x="430" y="152" text-anchor="middle">thousands of small</text>
+        <text x="430" y="168" text-anchor="middle">searchable pages,</text>
+        <text x="430" y="184" text-anchor="middle">every change kept</text>
+        <text x="755" y="75" text-anchor="middle">the assistant — chat</text>
+        <text x="755" y="90" text-anchor="middle">on Telegram</text>
+        <text x="755" y="171" text-anchor="middle">tasks · prospects · panels</text>
+        <text x="755" y="186" text-anchor="middle">in your browser</text>
+        <text x="430" y="345" text-anchor="middle">12 checks, every 15 min</text>
+        <text x="245" y="128" text-anchor="middle">copied every</text>
+        <text x="245" y="143" text-anchor="middle">15 minutes</text>
+        <text x="591" y="100" text-anchor="middle">search</text>
+        <text x="591" y="188" text-anchor="middle">read</text>
+        <text x="591" y="320" text-anchor="middle" style="fill:var(--warn)">"something broke"</text>
+        <text x="755" y="345" text-anchor="middle">red alert · green recovered</text>
+        <text x="447" y="250" >watched too</text>
+      </g>
+    </svg>
+    <figcaption>Everything runs on your own computer. The only things that
+    leave it are questions sent to the AI model, and alerts sent to your
+    phone.</figcaption>
+  </figure>
+
+  <div class="note"><b>The one hard safety rule:</b> the code that could send
+  an email was never written. Kiran can prepare drafts in your Drafts folder,
+  and only you can press send. No setting, no bug, and no clever instruction
+  hidden in an email can change that.</div>
+</section>
+
+<!-- ══════════════════════════ 2 · DATA FLOW ══════════════════════════ -->
+<section>
+  <p class="secno">02</p>
+  <h2>Data flow — two loops</h2>
+  <p>Information moves in two separate loops. One runs by itself every
+  15 minutes and keeps the brain current. The other runs when you ask a
+  question.</p>
+
+  <figure>
+    <svg viewBox="0 0 880 150" role="img" aria-label="The 15-minute loop: read new mail, update the waiting list, write brain pages, save, index, health-check.">
+      <defs>
+        <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <g fill="none" stroke="currentColor" stroke-width="1.4">
+        <rect x="14"  y="34" width="126" height="58" rx="8"/>
+        <rect x="162" y="34" width="126" height="58" rx="8"/>
+        <rect x="310" y="34" width="126" height="58" rx="8"/>
+        <rect x="458" y="34" width="126" height="58" rx="8"/>
+        <rect x="606" y="34" width="126" height="58" rx="8"/>
+        <rect x="754" y="34" width="112" height="58" rx="8" style="stroke:var(--warn)"/>
+        <line x1="140" y1="63" x2="158" y2="63" marker-end="url(#a2)"/>
+        <line x1="288" y1="63" x2="306" y2="63" marker-end="url(#a2)"/>
+        <line x1="436" y1="63" x2="454" y2="63" marker-end="url(#a2)"/>
+        <line x1="584" y1="63" x2="602" y2="63" marker-end="url(#a2)"/>
+        <line x1="732" y1="63" x2="750" y2="63" marker-end="url(#a2)"/>
+      </g>
+      <g font-size="13" fill="currentColor" font-weight="600" text-anchor="middle">
+        <text x="77"  y="58">read new</text><text x="77" y="74">mail</text>
+        <text x="225" y="58">update the</text><text x="225" y="74">waiting list</text>
+        <text x="373" y="58">write brain</text><text x="373" y="74">pages</text>
+        <text x="521" y="58">save a</text><text x="521" y="74">checkpoint</text>
+        <text x="669" y="58">index for</text><text x="669" y="74">search</text>
+        <text x="810" y="58" style="fill:var(--warn)">12 health</text>
+        <text x="810" y="74" style="fill:var(--warn)">checks</text>
+      </g>
+      <g font-size="12" fill="currentColor" opacity=".72" text-anchor="middle">
+        <text x="225" y="118">who is owed a reply,</text>
+        <text x="225" y="133">and for how long</text>
+        <text x="521" y="118">a save point we can</text>
+        <text x="521" y="133">always roll back to</text>
+        <text x="810" y="118" style="fill:var(--warn)">any failure →</text>
+        <text x="810" y="133" style="fill:var(--warn)">phone alert</text>
+      </g>
+    </svg>
+    <figcaption>The keep-current loop. It has run every 15 minutes for weeks;
+    when a step fails, the failure is loud on purpose — silent failure is how
+    an assistant becomes confidently wrong.</figcaption>
+  </figure>
+
+  <figure>
+    <svg viewBox="0 0 880 290" role="img" aria-label="The question loop: your question is searched four ways at once, the best six pages are picked, and the AI writes an answer that cites its sources.">
+      <defs>
+        <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+        </marker>
+        <marker id="a3g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" style="fill:var(--accent)"/>
+        </marker>
+      </defs>
+      <g fill="none" stroke="currentColor" stroke-width="1.4">
+        <rect x="16" y="112" width="132" height="60" rx="8"/>
+        <!-- four legs -->
+        <rect x="230" y="16"  width="170" height="48" rx="8"/>
+        <rect x="230" y="84"  width="170" height="48" rx="8"/>
+        <rect x="230" y="152" width="170" height="48" rx="8"/>
+        <rect x="230" y="220" width="170" height="48" rx="8"/>
+        <rect x="480" y="106" width="150" height="72" rx="8" style="stroke:var(--accent)" stroke-width="2"/>
+        <rect x="710" y="106" width="156" height="72" rx="8"/>
+        <line x1="148" y1="130" x2="226" y2="42"  marker-end="url(#a3)"/>
+        <line x1="148" y1="138" x2="226" y2="106" marker-end="url(#a3)"/>
+        <line x1="148" y1="148" x2="226" y2="174" marker-end="url(#a3)"/>
+        <line x1="148" y1="156" x2="226" y2="242" marker-end="url(#a3)"/>
+        <line x1="400" y1="42"  x2="476" y2="122" style="stroke:var(--accent)" marker-end="url(#a3g)"/>
+        <line x1="400" y1="106" x2="476" y2="134" style="stroke:var(--accent)" marker-end="url(#a3g)"/>
+        <line x1="400" y1="174" x2="476" y2="150" style="stroke:var(--accent)" marker-end="url(#a3g)"/>
+        <line x1="400" y1="242" x2="476" y2="162" style="stroke:var(--accent)" marker-end="url(#a3g)"/>
+        <line x1="630" y1="142" x2="706" y2="142" marker-end="url(#a3)"/>
+      </g>
+      <g font-size="13.5" fill="currentColor" font-weight="600">
+        <text x="82" y="138" text-anchor="middle">your</text>
+        <text x="82" y="154" text-anchor="middle">question</text>
+        <text x="315" y="38"  text-anchor="middle">by meaning</text>
+        <text x="315" y="106" text-anchor="middle">by exact words</text>
+        <text x="315" y="174" text-anchor="middle">by connections</text>
+        <text x="315" y="242" text-anchor="middle">by date</text>
+        <text x="555" y="136" text-anchor="middle" style="fill:var(--accent)">pick the best</text>
+        <text x="555" y="153" text-anchor="middle" style="fill:var(--accent)">6 pages</text>
+        <text x="788" y="136" text-anchor="middle">AI writes the</text>
+        <text x="788" y="153" text-anchor="middle">answer + sources</text>
+      </g>
+      <g font-size="11.5" fill="currentColor" opacity=".72" text-anchor="middle">
+        <text x="315" y="55">finds different wording</text>
+        <text x="315" y="123">names, exact phrases</text>
+        <text x="315" y="191">who knows whom, which deal</text>
+        <text x="315" y="259">"last week", "in July", newest first</text>
+        <text x="555" y="170">out of ~66 candidates</text>
+        <text x="788" y="170">median: 11 seconds</text>
+      </g>
+    </svg>
+    <figcaption>The question loop. Four searches run at once because each one
+    misses things the others catch. Every answer names the pages it came
+    from, so a claim can always be checked.</figcaption>
+  </figure>
+</section>
+
+<!-- ══════════════════════════ 3 · AGENT TASKS ════════════════════════ -->
+<section>
+  <p class="secno">03</p>
+  <h2>Agent tasks — who does what, and when</h2>
+  <p>An <span class="term" title="a program that uses an AI model to do a job on its own">agent</span>
+  is a program that uses an AI model to do a job on its own. COS runs several.
+  Some respond to you in chat; others run on a clock whether you are there
+  or not.</p>
+
+  <div class="cards">
+    <div class="card"><span class="chip c-chat">when you ask</span>
+      <h3>Answer questions</h3>
+      <p>Searches the brain, reads the best pages, answers with sources.</p></div>
+    <div class="card"><span class="chip c-chat">when you ask</span>
+      <h3>Draft replies</h3>
+      <p>Writes an email into your Drafts folder. It cannot send. Addresses
+      come only from your own mail history — never from text inside an
+      email.</p></div>
+    <div class="card"><span class="chip c-chat">when you ask</span>
+      <h3>Keep the panels</h3>
+      <p>Adds, moves, notes, archives items on any panel — and creates whole
+      new panels.</p></div>
+    <div class="card"><span class="chip c-chat">when you ask</span>
+      <h3>Take complaints</h3>
+      <p>You say "that answer was wrong" — it files the case for the
+      overnight fixer.</p></div>
+    <div class="card"><span class="chip c-clock">every 15 min</span>
+      <h3>Refresh + watchdog</h3>
+      <p>The keep-current loop above, ending in 12 health checks and an
+      alert if any fail.</p></div>
+    <div class="card"><span class="chip c-clock">7:30 am</span>
+      <h3>Morning digest</h3>
+      <p>One message: who is waiting on you, which deals went quiet, what is
+      on today.</p></div>
+    <div class="card"><span class="chip c-clock">3:30 am</span>
+      <h3>Overnight fixer</h3>
+      <p>Takes the day's complaints and tries to fix the code itself —
+      inside the fence drawn in section 04.</p></div>
+    <div class="card"><span class="chip c-clock">daily</span>
+      <h3>Self-review</h3>
+      <p>Reads Kiran's own conversations and reports bad habits — refusing
+      things it can do, leaking jargon, hanging.</p></div>
+  </div>
+</section>
+
+<!-- ══════════════════════ 4 · SELF-IMPROVE / SELF-HEAL ═══════════════ -->
+<section>
+  <p class="secno">04</p>
+  <h2>Self-healing, and self-improvement</h2>
+  <p><b>Self-healing</b> is the small loop: notice a breakage, say so, and
+  recover. It already works — here is a real morning, with no human
+  involved:</p>
+
+  <figure>
+    <svg viewBox="0 0 880 130" role="img" aria-label="Timeline of a real incident: 6:20 Gmail hiccup, 6:33 phone alert, 6:51 recovered, green all-clear sent.">
+      <g fill="none" stroke="currentColor" stroke-width="1.4">
+        <line x1="40" y1="70" x2="840" y2="70"/>
+      </g>
+      <g>
+        <circle cx="120" cy="70" r="7" style="fill:var(--bad)"/>
+        <circle cx="360" cy="70" r="7" style="fill:var(--bad)"/>
+        <circle cx="600" cy="70" r="7" style="fill:var(--accent)"/>
+        <circle cx="800" cy="70" r="7" style="fill:var(--accent)"/>
+      </g>
+      <g font-size="13" fill="currentColor" font-weight="600" text-anchor="middle">
+        <text x="120" y="40">6:20</text>
+        <text x="360" y="40">6:33</text>
+        <text x="600" y="40">6:51</text>
+        <text x="800" y="40">6:51</text>
+      </g>
+      <g font-size="12" fill="currentColor" opacity=".78" text-anchor="middle">
+        <text x="120" y="100">Gmail hiccup —</text>
+        <text x="120" y="115">refuses to guess</text>
+        <text x="360" y="100">phone alert:</text>
+        <text x="360" y="115">"brief failed" + why</text>
+        <text x="600" y="100">next run</text>
+        <text x="600" y="115">succeeds</text>
+        <text x="800" y="100">green message:</text>
+        <text x="800" y="115">"recovered"</text>
+      </g>
+    </svg>
+    <figcaption>Monday 11 August, as it actually happened. The design rule
+    behind it: never infer "fine" from silence — every check must prove the
+    good thing happened.</figcaption>
+  </figure>
+
+  <p><b>Self-improvement</b> is the big loop: the system collects its own
+  failures and tries to fix its own code overnight. Three feeds fill one
+  queue, and a wall of gates decides what is allowed to change without
+  you.</p>
+
+  <figure>
+    <svg viewBox="0 0 880 560" role="img" aria-label="The self-improvement loop: complaints, slow answers and failed exam questions fill a queue; at 3:30am a coding agent works on a copy; four gates check the result; green changes merge with an undo, everything else waits for your OK.">
+      <defs>
+        <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+        </marker>
+        <marker id="a4g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" style="fill:var(--accent)"/>
+        </marker>
+        <marker id="a4w" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" style="fill:var(--warn)"/>
+        </marker>
+      </defs>
+      <g fill="none" stroke="currentColor" stroke-width="1.4">
+        <!-- three feeds -->
+        <rect x="20"  y="20" width="255" height="64" rx="8"/>
+        <rect x="305" y="20" width="255" height="64" rx="8"/>
+        <rect x="590" y="20" width="270" height="64" rx="8"/>
+        <!-- queue -->
+        <rect x="330" y="130" width="220" height="52" rx="8"/>
+        <line x1="147" y1="84" x2="420" y2="126" marker-end="url(#a4)"/>
+        <line x1="432" y1="84" x2="438" y2="126" marker-end="url(#a4)"/>
+        <line x1="725" y1="84" x2="460" y2="126" marker-end="url(#a4)"/>
+        <!-- agent on a copy -->
+        <rect x="290" y="228" width="300" height="66" rx="8" stroke-dasharray="6 4"/>
+        <line x1="440" y1="182" x2="440" y2="224" marker-end="url(#a4)"/>
+        <!-- gates -->
+        <rect x="80" y="348" width="720" height="66" rx="10" style="stroke:var(--warn)" stroke-width="2"/>
+        <line x1="260" y1="348" x2="260" y2="414" style="stroke:var(--warn)"/>
+        <line x1="440" y1="348" x2="440" y2="414" style="stroke:var(--warn)"/>
+        <line x1="620" y1="348" x2="620" y2="414" style="stroke:var(--warn)"/>
+        <line x1="440" y1="294" x2="440" y2="344" marker-end="url(#a4)"/>
+        <!-- outcomes -->
+        <rect x="120" y="470" width="300" height="66" rx="8" style="stroke:var(--accent)" stroke-width="2"/>
+        <rect x="500" y="470" width="270" height="66" rx="8"/>
+        <line x1="300" y1="414" x2="278" y2="466" style="stroke:var(--accent)" marker-end="url(#a4g)"/>
+        <line x1="580" y1="414" x2="620" y2="466" marker-end="url(#a4)"/>
+      </g>
+      <g font-size="13.5" fill="currentColor" font-weight="600" text-anchor="middle">
+        <text x="147" y="45">you flag it</text>
+        <text x="432" y="45">too slow</text>
+        <text x="725" y="45">nightly exam slips</text>
+        <text x="440" y="152">the queue</text>
+        <text x="440" y="252">3:30 am — a coding agent</text>
+        <text x="440" y="270">works on a COPY of the code</text>
+        <text x="270" y="500" style="fill:var(--accent)">merged + morning message</text>
+        <text x="635" y="500">waits for your OK</text>
+      </g>
+      <g font-size="12" fill="currentColor" opacity=".75" text-anchor="middle">
+        <text x="147" y="63">"that answer was wrong" —</text>
+        <text x="147" y="77">Kiran files it</text>
+        <text x="432" y="63">answers over 2 minutes,</text>
+        <text x="432" y="77">found automatically</text>
+        <text x="725" y="63">a question it used to get</text>
+        <text x="725" y="77">right now comes back wrong</text>
+        <text x="440" y="170">every case dated, deduplicated</text>
+        <text x="440" y="288">the live system is never touched directly</text>
+        <text x="270" y="518" style="fill:var(--accent)">"here's what changed" —</text>
+        <text x="270" y="532" style="fill:var(--accent)">one command undoes it</text>
+        <text x="635" y="518">bigger or riskier changes</text>
+        <text x="635" y="532">ship only when you say yes</text>
+      </g>
+      <g font-size="12.5" font-weight="600" text-anchor="middle" fill="currentColor">
+        <text x="170" y="374" style="fill:var(--warn)">gate 1</text>
+        <text x="350" y="374" style="fill:var(--warn)">gate 2</text>
+        <text x="530" y="374" style="fill:var(--warn)">gate 3</text>
+        <text x="710" y="374" style="fill:var(--warn)">gate 4</text>
+      </g>
+      <g font-size="11.5" fill="currentColor" opacity=".8" text-anchor="middle">
+        <text x="170" y="392">no protected</text><text x="170" y="405">files touched</text>
+        <text x="350" y="392">change stays</text><text x="350" y="405">small</text>
+        <text x="530" y="392">all 449 tests</text><text x="530" y="405">pass</text>
+        <text x="710" y="392">a second AI</text><text x="710" y="405">approves the change</text>
+      </g>
+    </svg>
+    <figcaption>The gates are code, not AI judgement — except gate 4, where a
+    second, independent AI reads the change and answers one question: safe to
+    ship without a human? Its "no" cannot be overruled by the agent that
+    wrote the change.</figcaption>
+  </figure>
+
+  <div class="note"><b>The protected list</b> — files the overnight fixer may
+  never touch, no matter what: email drafting, phone alerts, secrets, the
+  schedules, and <b>the fixer itself</b>. The rules live in a file only you
+  can edit. A loop that could improve away its own limits isn't a tool, it's
+  a gamble.</div>
+
+  <p><b>What we took from oh-my-pi</b> (an open-source coding agent): the
+  insight that an agent's quality is mostly a <b>harness</b> problem. The AI
+  model is rented and the same for everyone — what you own is the ring
+  around it:</p>
+
+  <figure>
+    <svg viewBox="0 0 880 250" role="img" aria-label="A small AI model box sits inside a larger harness ring labeled: what it sees, what it may touch, who checks its work, when it must ask.">
+      <g fill="none" stroke="currentColor" stroke-width="1.4">
+        <rect x="240" y="30" width="400" height="190" rx="14" style="stroke:var(--accent)" stroke-width="2"/>
+        <rect x="365" y="95" width="150" height="60" rx="8"/>
+      </g>
+      <g font-size="14" fill="currentColor" font-weight="600" text-anchor="middle">
+        <text x="440" y="121">AI model</text>
+      </g>
+      <g font-size="12" fill="currentColor" opacity=".75" text-anchor="middle">
+        <text x="440" y="139">rented, same for everyone</text>
+      </g>
+      <g font-size="13" font-weight="600" text-anchor="middle">
+        <text x="440" y="58" style="fill:var(--accent)">the harness — this is what we build</text>
+      </g>
+      <g font-size="12.5" fill="currentColor" text-anchor="middle">
+        <text x="330" y="185">what it sees</text>
+        <text x="440" y="205">what it may touch</text>
+        <text x="553" y="185">who checks its work</text>
+        <text x="440" y="82">when it must ask you</text>
+      </g>
+      <g font-size="12" fill="currentColor" opacity=".72">
+        <text x="30" y="115">better model</text>
+        <text x="30" y="131">= a bit better</text>
+        <text x="675" y="115">better harness</text>
+        <text x="675" y="131">= answers went from</text>
+        <text x="675" y="147">76s to 11s, sources</text>
+        <text x="675" y="163">from 71% to 93%</text>
+      </g>
+    </svg>
+    <figcaption>Every big win in this project came from the ring, not the
+    model: feeding it the right six pages, checking its work against a fixed
+    exam, and drawing hard lines it cannot cross.</figcaption>
+  </figure>
+</section>
+
+<!-- ══════════════════════════ 5 · ADAPTIVE PANELS ════════════════════ -->
+<section>
+  <p class="secno">05</p>
+  <h2>Adaptive panels — the dashboard grows on demand</h2>
+  <p>Panels are <b>data, not code</b>. Each panel is a few rows in a small
+  database, so making a new one takes a sentence, not a programmer. Click
+  <b>"+ panel"</b> in the sidebar, or tell Kiran <i>"make me a hiring
+  tracker"</i> — a new tab appears, born with everything the Prospects panel
+  proved out.</p>
+
+  <figure>
+    <svg viewBox="0 0 880 330" role="img" aria-label="One database feeds many dashboard tabs; a plus-panel action creates a new tab that inherits stages, notes, drag order, an attention list and its own chat.">
+      <defs>
+        <marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+        </marker>
+        <marker id="a5g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" style="fill:var(--accent)"/>
+        </marker>
+      </defs>
+      <!-- database -->
+      <g fill="none" stroke="currentColor" stroke-width="1.4">
+        <ellipse cx="120" cy="70" rx="85" ry="22"/>
+        <path d="M35 70 v120 a85 22 0 0 0 170 0 v-120"/>
+        <line x1="205" y1="130" x2="330" y2="80"  marker-end="url(#a5)"/>
+        <line x1="205" y1="145" x2="330" y2="145" marker-end="url(#a5)"/>
+        <line x1="205" y1="160" x2="330" y2="210" style="stroke:var(--accent)" marker-end="url(#a5g)"/>
+      </g>
+      <g font-size="13" fill="currentColor" font-weight="600" text-anchor="middle">
+        <text x="120" y="130">one small</text>
+        <text x="120" y="147">database</text>
+      </g>
+      <g font-size="11.5" fill="currentColor" opacity=".7" text-anchor="middle">
+        <text x="120" y="168">every edit kept,</text>
+        <text x="120" y="182">notes dated</text>
+      </g>
+      <!-- tabs -->
+      <g fill="none" stroke="currentColor" stroke-width="1.4">
+        <rect x="340" y="50"  width="170" height="56" rx="8"/>
+        <rect x="340" y="118" width="170" height="56" rx="8"/>
+        <rect x="340" y="186" width="170" height="56" rx="8" style="stroke:var(--accent)" stroke-width="2" stroke-dasharray="6 4"/>
+      </g>
+      <g font-size="13.5" font-weight="600" fill="currentColor" text-anchor="middle">
+        <text x="425" y="74">Prospects</text>
+        <text x="425" y="142">Tasks</text>
+        <text x="425" y="210" style="fill:var(--accent)">your new panel</text>
+      </g>
+      <g font-size="11.5" fill="currentColor" opacity=".7" text-anchor="middle">
+        <text x="425" y="92">deals + mail overlay</text>
+        <text x="425" y="160">to-dos + waiting list</text>
+        <text x="425" y="228" style="fill:var(--accent)">"+ panel", or ask Kiran</text>
+      </g>
+      <!-- inherited machinery -->
+      <g fill="none" stroke="currentColor" stroke-width="1.4">
+        <rect x="590" y="40" width="270" height="220" rx="10"/>
+        <line x1="510" y1="214" x2="586" y2="150" style="stroke:var(--accent)" marker-end="url(#a5g)"/>
+      </g>
+      <g font-size="12.5" font-weight="600" fill="currentColor">
+        <text x="610" y="66">every panel is born with:</text>
+      </g>
+      <g font-size="12.5" fill="currentColor" opacity=".85">
+        <text x="610" y="92">· stages, in your own words</text>
+        <text x="610" y="114">· dated notes that never overwrite</text>
+        <text x="610" y="136">· drag to reorder</text>
+        <text x="610" y="158">· a "needs attention now" top group</text>
+        <text x="610" y="180">· a chat box that acts on that panel</text>
+        <text x="610" y="202">· Kiran can edit it from Telegram</text>
+        <text x="610" y="224">· removal takes two deliberate steps</text>
+      </g>
+      <g font-size="12" fill="currentColor" opacity=".72" text-anchor="middle">
+        <text x="268" y="90">reads</text>
+        <text x="240" y="252" style="fill:var(--accent)">a new panel is just new rows</text>
+      </g>
+    </svg>
+    <figcaption>Because a panel is rows in a database rather than code, "add
+    a GTM tab" is something you say, not something you wait for. The same
+    idea is heading toward widgets — small cards inside a panel — next.</figcaption>
+  </figure>
+</section>
+
+<footer>
+  COS · open source at <code>github.com/Kineviz/cos</code> · 449 automated
+  tests · benchmark: accuracy 94–100%, median answer 11s, zero invented facts
+  in 374 graded answers
+</footer>
+
+</div>

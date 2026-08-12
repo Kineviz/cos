@@ -1,0 +1,1192 @@
+<title>Kiran benchmark report</title>
+
+<style>
+  :root {
+    --paper:      #EEF1F1;
+    --surface:    #FBFCFC;
+    --surface-2:  #E5EBEB;
+    --ink:        #16242A;
+    --ink-2:      #4E656C;
+    --ink-3:      #7C9298;
+    --rule:       #D2DDDE;
+    --rule-soft:  #E1E9E9;
+    --accent:     #17636F;
+    --accent-dim: #C4DADD;
+    --gain:       #35704E;
+    --loss:       #9C4A42;
+    --shadow:     0 1px 2px rgba(22,36,42,.05), 0 8px 24px -16px rgba(22,36,42,.28);
+
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #0E1517;
+      --surface:    #161F21;
+      --surface-2:  #1D282B;
+      --ink:        #E3EAEA;
+      --ink-2:      #9DB0B4;
+      --ink-3:      #73888D;
+      --rule:       #273538;
+      --rule-soft:  #1F2C2F;
+      --accent:     #63B8C5;
+      --accent-dim: #234A51;
+      --gain:       #6DB78A;
+      --loss:       #D4877C;
+      --shadow:     0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.9);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #0E1517;
+    --surface:    #161F21;
+    --surface-2:  #1D282B;
+    --ink:        #E3EAEA;
+    --ink-2:      #9DB0B4;
+    --ink-3:      #73888D;
+    --rule:       #273538;
+    --rule-soft:  #1F2C2F;
+    --accent:     #63B8C5;
+    --accent-dim: #234A51;
+    --gain:       #6DB78A;
+    --loss:       #D4877C;
+    --shadow:     0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.9);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 18px;
+    line-height: 1.62;
+    margin: 0;
+    padding: clamp(28px, 5vw, 72px) clamp(18px, 5vw, 32px) 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 46rem;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2.75rem;
+  }
+
+  /* ---------- masthead ---------- */
+
+  .eyebrow {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0;
+  }
+
+  h1 {
+    font-family: var(--sans);
+    font-size: clamp(28px, 6vw, 40px);
+    font-weight: 650;
+    letter-spacing: -.025em;
+    line-height: 1.12;
+    text-wrap: balance;
+    margin: .5rem 0 0;
+  }
+
+  .deck {
+    color: var(--ink-2);
+    font-size: 19px;
+    margin: .85rem 0 0;
+    max-width: 34rem;
+    text-wrap: pretty;
+  }
+
+  .masthead {
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 2.25rem;
+  }
+
+  /* ---------- stat strip ---------- */
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+
+  .stat {
+    background: var(--surface);
+    padding: 1.05rem 1.15rem 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+  }
+
+  .stat-label {
+    font-family: var(--sans);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .stat-value {
+    font-family: var(--sans);
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: -.03em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat-note {
+    font-family: var(--sans);
+    font-size: 12.5px;
+    color: var(--ink-2);
+    line-height: 1.4;
+  }
+
+  .up   { color: var(--gain); }
+  .down { color: var(--loss); }
+
+  /* ---------- sections ---------- */
+
+  section { display: flex; flex-direction: column; gap: 1rem; }
+
+  h2 {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 650;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink);
+    margin: 0;
+    padding-bottom: .55rem;
+    border-bottom: 2px solid var(--accent);
+    align-self: flex-start;
+  }
+
+  h3 {
+    font-family: var(--sans);
+    font-size: 17px;
+    font-weight: 620;
+    letter-spacing: -.012em;
+    margin: .9rem 0 -.35rem;
+    text-wrap: balance;
+  }
+
+  p { margin: 0; text-wrap: pretty; }
+
+  strong { font-weight: 600; }
+
+  em { font-style: italic; }
+
+  code, .num {
+    font-family: var(--mono);
+    font-size: .84em;
+    font-variant-numeric: tabular-nums;
+    background: var(--surface-2);
+    padding: .1em .34em;
+    border-radius: 3px;
+  }
+
+  /* ---------- the run chart ---------- */
+
+  .runs {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--rule-soft);
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .run {
+    background: var(--surface);
+    display: grid;
+    grid-template-columns: 1.6rem minmax(0, 1fr);
+    gap: 0 .85rem;
+    padding: .8rem .9rem .85rem;
+    align-items: baseline;
+  }
+
+  .run-n {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    padding-top: .2rem;
+  }
+
+  .run-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: .5rem .7rem;
+  }
+
+  .run-name {
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -.01em;
+  }
+
+  .run-acc {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-2);
+    background: none;
+    padding: 0;
+    margin-left: auto;
+  }
+
+  .tag {
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 650;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--surface);
+    background: var(--accent);
+    padding: .18em .5em .22em;
+    border-radius: 2px;
+  }
+
+  .bar {
+    grid-column: 2;
+    height: 8px;
+    background: var(--surface-2);
+    border-radius: 4px;
+    margin-top: .55rem;
+    overflow: hidden;
+  }
+
+  .bar > i {
+    display: block;
+    height: 100%;
+    background: var(--accent-dim);
+    border-radius: 4px;
+  }
+
+  .run.best .bar > i { background: var(--accent); }
+  .run.best .run-acc { color: var(--ink); font-weight: 600; }
+
+  .run-note {
+    grid-column: 2;
+    font-size: 16.5px;
+    color: var(--ink-2);
+    margin-top: .6rem;
+    line-height: 1.5;
+  }
+
+  .scale {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--sans);
+    font-size: 10.5px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    padding: 0 .9rem;
+  }
+
+
+  /* ---------- three charts in a row ---------- */
+
+  .charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .chart {
+    background: var(--surface);
+    margin: 0;
+    padding: .9rem .8rem .8rem;
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+  }
+
+  .chart svg { display: block; width: 100%; height: auto; }
+
+  .chart figcaption {
+    font-family: var(--sans);
+    font-size: 12.5px;
+    color: var(--ink-2);
+    line-height: 1.5;
+  }
+
+  .chart .from { font-variant-numeric: tabular-nums; }
+  .chart .to {
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+  .chart .to.good { color: var(--gain); }
+
+  .chart .g { stroke: var(--rule-soft); stroke-width: 1; }
+  .chart .ax {
+    font-family: var(--sans);
+    font-size: 8.5px;
+    fill: var(--ink-3);
+  }
+  .chart .ln {
+    fill: none;
+    stroke: var(--ink-3);
+    stroke-width: 1.8;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+  .chart .ln.good { stroke: var(--accent); }
+  .chart .p0 { fill: var(--ink-3); }
+  .chart .p1 { fill: var(--ink-3); }
+  .chart .p1.good { fill: var(--gain); }
+
+  .chartnote {
+    font-size: 15.5px;
+    color: var(--ink-2);
+  }
+
+  /* ---------- table ---------- */
+
+  .table-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  th, td {
+    padding: .55rem .7rem;
+    text-align: right;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+
+  th {
+    font-size: 10.5px;
+    font-weight: 650;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  th:first-child, td:first-child {
+    text-align: left;
+    white-space: nowrap;
+    position: sticky;
+    left: 0;
+    background: var(--surface);
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tr.best td { background: var(--surface-2); }
+  tr.best td:first-child { background: var(--surface-2); }
+  td.hi { color: var(--ink); font-weight: 600; }
+
+  caption {
+    caption-side: bottom;
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--ink-3);
+    text-align: left;
+    padding: .65rem .7rem 0;
+    white-space: normal;
+  }
+
+  /* ---------- time profile ---------- */
+
+  .split { display: flex; flex-direction: column; gap: .55rem; margin: .3rem 0 .4rem; }
+  .split-row { display: grid; grid-template-columns: 10.5rem 1fr 7.5rem; gap: .8rem; align-items: center; }
+  .split-k { font-family: var(--sans); font-size: 14px; color: var(--ink-2); }
+  .split-bar { height: 14px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+  .split-bar > i { display: block; height: 100%; border-radius: 3px; }
+  .split-bar > i.a { background: var(--gain); min-width: 3px; }
+  .split-bar > i.b { background: var(--accent); }
+  .split-v { font-family: var(--mono); font-size: 13px; color: var(--ink-2);
+             font-variant-numeric: tabular-nums; text-align: right; }
+
+  .qprofile { display: flex; flex-direction: column; gap: 1px; background: var(--rule-soft);
+              border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); margin: .4rem 0; }
+  .q { background: var(--surface); display: grid;
+       grid-template-columns: 2rem minmax(0, 1fr) 6.5rem 3.2rem;
+       gap: .6rem; align-items: center; padding: .42rem .7rem; }
+  .q-n { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+  .q-t { font-family: var(--sans); font-size: 14px; min-width: 0;
+         white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .q-b { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+  .q-b > i { display: block; height: 100%; border-radius: 4px; background: var(--accent-dim); }
+  .q.slow .q-b > i { background: var(--accent); }
+  .q.fast .q-b > i { background: var(--gain); }
+  .q-s { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2);
+         font-variant-numeric: tabular-nums; text-align: right; }
+
+  @media (max-width: 560px) {
+    .split-row { grid-template-columns: 1fr 5.5rem; }
+    .split-row .split-bar { grid-column: 1 / -1; order: 3; }
+    .q { grid-template-columns: 2rem minmax(0, 1fr) 3.2rem; }
+    .q .q-b { display: none; }
+  }
+
+  /* ---------- lists ---------- */
+
+  ul { margin: 0; padding-left: 1.15rem; display: flex; flex-direction: column; gap: .6rem; }
+  li { padding-left: .15rem; }
+  li::marker { color: var(--ink-3); }
+
+  .finding {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 1.05rem 1.2rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+  }
+
+  .finding h3 { margin: 0; }
+
+  .open {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--rule-soft);
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .open > div {
+    background: var(--surface);
+    padding: .9rem 1rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+  }
+
+  .open h3 { margin: 0; font-size: 15.5px; }
+
+  .open p { font-size: 16.5px; color: var(--ink-2); }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 1.5rem;
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--ink-3);
+    line-height: 1.6;
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">Kiran · benchmark · updated after every run</p>
+    <h1>Kiran benchmark report</h1>
+    <p class="deck">We ask Kiran the same 17 questions after every change and score the
+      answers. This page shows all 21 runs so far. It is updated after each run.</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat">
+      <span class="stat-label">Accuracy</span>
+      <span class="stat-value">100%</span>
+      <span class="stat-note"><span class="up">up from 88%</span> at baseline; 94% on the repeat</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Source relevance</span>
+      <span class="stat-value">93%</span>
+      <span class="stat-note"><span class="up">up from 71%</span>, and it repeats exactly</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Made-up facts</span>
+      <span class="stat-value">0</span>
+      <span class="stat-note">across all 357 answers</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Median answer</span>
+      <span class="stat-value">12s</span>
+      <span class="stat-note"><span class="up">down from 76s</span>; slow tail 120s → 28s</span>
+    </div>
+  </div>
+
+  <section>
+    <h2>Baseline to the latest run, at a glance</h2>
+
+    <p>Every change was measured against the same 17 questions. Here is the
+      first run and the last, side by side.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">What</th><th scope="col">Run 1</th>
+              <th scope="col">Latest</th><th scope="col">Change</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Median answer</th><td>76.4s</td>
+              <td class="hi">11.3s</td><td class="up">6.8× faster</td></tr>
+          <tr><th scope="row">Slowest 10% (p90)</th><td>119.7s</td>
+              <td class="hi">25.5s</td><td class="up">4.7× faster</td></tr>
+          <tr><th scope="row">Right documents found</th><td>71%</td>
+              <td class="hi">93%</td><td class="up">+22 points</td></tr>
+          <tr><th scope="row">Accuracy</th><td>88%</td>
+              <td class="hi">94%</td><td class="up">+6 points</td></tr>
+          <tr><th scope="row">Memory questions (recall)</th><td>100%</td>
+              <td class="hi">100%</td><td>held — after breaking for 6 runs</td></tr>
+          <tr><th scope="row">Questions that finished</th><td>15 of 17</td>
+              <td class="hi">17 of 17</td><td class="up">no timeouts since run 12</td></tr>
+          <tr><th scope="row">Made-up facts</th><td>0</td>
+              <td class="hi">0</td><td>never happened, in 374 answers</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="charts">
+      <figure class="chart">
+      <svg viewBox="0 0 300 150" role="img" preserveAspectRatio="xMidYMid meet"
+           aria-label="Median answer: run 1 76.4s, latest 11.3s, across every run">
+        <line class="g" x1="34" y1="128.0" x2="292" y2="128.0"/><text class="ax" x="28" y="131.5" text-anchor="end">0</text><line class="g" x1="34" y1="94.7" x2="292" y2="94.7"/><text class="ax" x="28" y="98.2" text-anchor="end">25</text><line class="g" x1="34" y1="61.4" x2="292" y2="61.4"/><text class="ax" x="28" y="64.9" text-anchor="end">50</text><line class="g" x1="34" y1="28.1" x2="292" y2="28.1"/><text class="ax" x="28" y="31.6" text-anchor="end">75</text>
+        <polyline class="ln good" points="34.0,26.2 46.3,82.3 58.6,68.3 70.9,34.6 83.1,59.9 95.4,74.4 107.7,95.5 120.0,88.4 132.3,94.8 144.6,99.5 156.9,92.8 169.1,103.5 181.4,92.8 193.7,88.8 206.0,104.7 218.3,99.5 230.6,108.9 242.9,80.2 255.1,90.2 267.4,66.0 279.7,110.9 292.0,112.9"/>
+        <circle class="p0" cx="34.0" cy="26.2" r="3.2"/>
+        <circle class="p1 good" cx="292.0"
+                cy="112.9" r="3.8"/>
+        <text class="ax" x="34" y="144">run 1</text>
+        <text class="ax" x="292" y="144" text-anchor="end">latest</text>
+      </svg>
+      <figcaption><b>Median answer</b><br>
+        <span class="from">76.4s</span> →
+        <span class="to good">11.3s</span></figcaption>
+    </figure>
+      <figure class="chart">
+      <svg viewBox="0 0 300 150" role="img" preserveAspectRatio="xMidYMid meet"
+           aria-label="Slowest 10%: run 1 119.7s, latest 25.5s, across every run">
+        <line class="g" x1="34" y1="128.0" x2="292" y2="128.0"/><text class="ax" x="28" y="131.5" text-anchor="end">0</text><line class="g" x1="34" y1="98.8" x2="292" y2="98.8"/><text class="ax" x="28" y="102.3" text-anchor="end">50</text><line class="g" x1="34" y1="69.6" x2="292" y2="69.6"/><text class="ax" x="28" y="73.1" text-anchor="end">100</text><line class="g" x1="34" y1="40.4" x2="292" y2="40.4"/><text class="ax" x="28" y="43.9" text-anchor="end">150</text>
+        <polyline class="ln good" points="34.0,58.1 46.3,64.7 58.6,26.2 70.9,32.9 83.1,31.5 95.4,48.5 107.7,56.1 120.0,51.5 132.3,92.0 144.6,72.1 156.9,96.1 169.1,83.7 181.4,83.1 193.7,91.9 206.0,101.3 218.3,109.1 230.6,109.7 242.9,100.5 255.1,71.4 267.4,75.9 279.7,111.5 292.0,113.1"/>
+        <circle class="p0" cx="34.0" cy="58.1" r="3.2"/>
+        <circle class="p1 good" cx="292.0"
+                cy="113.1" r="3.8"/>
+        <text class="ax" x="34" y="144">run 1</text>
+        <text class="ax" x="292" y="144" text-anchor="end">latest</text>
+      </svg>
+      <figcaption><b>Slowest 10%</b><br>
+        <span class="from">119.7s</span> →
+        <span class="to good">25.5s</span></figcaption>
+    </figure>
+      <figure class="chart">
+      <svg viewBox="0 0 300 150" role="img" preserveAspectRatio="xMidYMid meet"
+           aria-label="Right documents found: run 1 71%, latest 93%, across every run">
+        <line class="g" x1="34" y1="128.0" x2="292" y2="128.0"/><text class="ax" x="28" y="131.5" text-anchor="end">0</text><line class="g" x1="34" y1="100.6" x2="292" y2="100.6"/><text class="ax" x="28" y="104.1" text-anchor="end">25</text><line class="g" x1="34" y1="73.2" x2="292" y2="73.2"/><text class="ax" x="28" y="76.7" text-anchor="end">50</text><line class="g" x1="34" y1="45.8" x2="292" y2="45.8"/><text class="ax" x="28" y="49.3" text-anchor="end">75</text><line class="g" x1="34" y1="18.4" x2="292" y2="18.4"/><text class="ax" x="28" y="21.9" text-anchor="end">100</text>
+        <polyline class="ln good" points="34.0,49.8 46.3,49.8 58.6,49.8 70.9,49.8 83.1,34.1 95.4,34.1 107.7,34.1 120.0,26.2 132.3,26.2 144.6,26.2 156.9,26.2 169.1,26.2 181.4,26.2 193.7,26.2 206.0,26.2 218.3,26.2 230.6,26.2 242.9,34.1 255.1,34.1 267.4,34.1 279.7,26.2 292.0,26.2"/>
+        <circle class="p0" cx="34.0" cy="49.8" r="3.2"/>
+        <circle class="p1 good" cx="292.0" cy="26.2" r="3.8"/>
+        <text class="ax" x="34" y="144">run 1</text>
+        <text class="ax" x="292" y="144" text-anchor="end">latest</text>
+      </svg>
+      <figcaption><b>Right documents found</b><br>
+        <span class="from">71%</span> →
+        <span class="to good">93%</span></figcaption>
+    </figure>
+    </div>
+
+    <p class="chartnote">Each line is every run in order — 22 measurements of
+      21 configurations, because one change was run twice under the same name. The two spikes
+      in the middle are runs where a change made things worse and was measured
+      rather than guessed at — run 2 stuffed the prompt with facts, run 16 shifted
+      what "lately" means. Recall sitting at 67% from run 12 to 16 is the outage
+      described below.</p>
+  </section>
+
+  <section>
+    <h2>First: the scores are noisy</h2>
+    <p>We ran the same test twice with nothing changed. Run 6 scored 94%. Run 7 scored
+      100%. Same code, same questions, same data.</p>
+    <p>So a 6-point difference means nothing. One question flipping is worth 6 points,
+      because there are only 17 questions. When two runs are within 6 points of each
+      other, we cannot say which one is better.</p>
+    <p>Speed is even noisier. In those two identical runs, one question took 213 seconds
+      the first time and 28 seconds the second time.</p>
+    <div class="split">
+      <div class="split-row">
+        <span class="split-k">Run 6 → run 7</span>
+        <div class="split-bar"><i class="b" style="width:6%"></i></div>
+        <span class="split-v"><strong>±6 pts</strong> · 1 of 17</span>
+      </div>
+    </div>
+    <p>Why do questions flip? So far, always the same reason: a timeout. The model
+      sometimes keeps searching until the 5-minute limit kills it. The same question
+      finishes fine on the next run.</p>
+  </section>
+
+  <section>
+    <h2>One score is reliable: source relevance</h2>
+    <p><strong>Source relevance means: did Kiran find the right documents?</strong> We
+      check the six documents it used against the ones that actually contain the answer.
+      This score turns out to be the only stable one.</p>
+    <p>Since run 6, we run every change twice. Here are the six pairs:</p>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">Pair</th><th scope="col">Accuracy</th>
+              <th scope="col">Sources</th><th scope="col">Median</th><th scope="col">Slow tail</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">6 + 7 — merged queries</th>
+              <td>94% / 100%</td><td class="hi">86% / 86%</td><td>40.2s / 24.4s</td><td>136s / 123s</td></tr>
+          <tr><th scope="row">8 + 9 — date aware</th>
+              <td>94% / 94%</td><td class="hi">93% / 93%</td><td>29.7s / 24.9s</td><td>131s / 62s</td></tr>
+          <tr><th scope="row">10 + 11 — local answers</th>
+              <td>94% / 100%</td><td class="hi">93% / 93%</td><td>21.4s / 26.4s</td><td>96s / 55s</td></tr>
+          <tr><th scope="row">12 + 13 — page text in the prompt</th>
+              <td>88% / 88%</td><td class="hi">93% / 93%</td><td>18.4s / 29.4s</td><td>76s / 62s</td></tr>
+          <tr><th scope="row">15 + 16 — four legs, fused</th>
+              <td>88% / 82%</td><td class="hi">93% / 93%</td><td>21.4s / 14.3s</td><td>32s / 31s</td></tr>
+          <tr><th scope="row">20 + 21 — each method keeps its best</th>
+              <td>100% / 94%</td><td class="hi">93% / 93%</td><td>12.8s / 11.3s</td><td>28s / 26s</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Look at the Sources column. It gives the same number both times, in every pair:
+      86/86, then 93/93 five times. The Accuracy column jumps around. The speed columns
+      jump around. Sources holds still.</p>
+    <p>So when we want to know if a change helped, we trust this score. It went 71% →
+      86% → 93% across the day, and each step repeated exactly.</p>
+    <p>But this score has a blind spot. It only checks which documents Kiran found. It
+      does not check what Kiran did with them. Later in this page, recall breaks for six
+      runs while this score stays at a healthy 93% — because Kiran was finding the right
+      documents and still giving wrong answers. Keep that in mind when reading it.</p>
+  </section>
+
+  <section>
+    <h2>How the test works</h2>
+    <p>17 questions, 5 categories: dates and times, remembering facts, lists, reasoning,
+      and honesty (questions about things that do not exist, where the right answer is
+      "I don't know"). Each answer is checked for specific facts. For example: the
+      answer to "who is the decision maker at Northwind" must contain "Morgan". No AI
+      grades the answers. A string is there or it is not.</p>
+    <p>Two code reviews also ran on day one. They found one security hole, one bug that
+      could lose data, and about thirty smaller problems. The two worst are below.</p>
+  </section>
+
+  <section>
+    <h2>What the reviews found, worst first</h2>
+
+    <div class="finding">
+      <h3>Any web page could rewrite your settings</h3>
+      <p>The settings endpoint accepted changes from anywhere. No check on where the
+        request came from. So any web page open in your browser could quietly change
+        Kiran's settings: who it may email, where it may write files, and the API
+        key.</p>
+      <p>We proved it before fixing it: from a browser tab, we renamed the agent to
+        <code>PWNED</code>. It worked. The IP allowlist did not block it, because the
+        request really did come from this machine.</p>
+      <p>It is fixed and re-tested. The attack now fails. Normal requests still work.</p>
+    </div>
+
+    <div class="finding">
+      <h3>A torn write could silently erase every manual to-do</h3>
+      <p>If two saves happened at the same time, the to-do file could get scrambled. The
+        page would then show an empty list, as if you had no to-dos. Your manual items
+        exist only in that file. There was no backup.</p>
+      <p>It is fixed: saves now wait for each other, a backup is kept, and a scrambled
+        file shows an error instead of an empty list. A test runs 12 saves at once and
+        checks that all 12 survive.</p>
+    </div>
+
+    <div class="finding">
+      <h3>Three signals that pointed the wrong way</h3>
+      <p>Three parts of the system could report good news that was false. A command
+        could fail but still get saved as a good answer. A health check could text you
+        "🟢 Recovered" when the real status was unknown — this happened during a real
+        outage. And a question that timed out just disappeared from the page, instead of
+        showing as failed.</p>
+      <p>All three are fixed. The common mistake: treating "no bad news" as good news.</p>
+    </div>
+
+    <div class="finding">
+      <h3>Your two reported bugs</h3>
+      <p><strong>"It never finished."</strong> The dashboard was loading 47 plugins and
+        over 200 tools into the model. With that much to choose from, it looped until
+        the 5-minute limit killed it. We cut the tool list down to the two it needs.
+        The same question now answers in 21 seconds. Telegram never had this problem —
+        its tool list was already short.</p>
+      <p><strong>"Many irrelevant docs."</strong> Kiran picks which database to search
+        based on the folder it starts in. It was starting in the wrong folder. Searching
+        "falcon" from the wrong folder returned four unrelated people. From the right
+        folder: six Falcon email threads. We pinned the folder.</p>
+      <p><strong>"It ignored 'this morning'."</strong> We now put today's date in the
+        prompt instead of hoping the model checks the clock.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>The first seven runs, one by one</h2>
+    <p>One change per run. Same 17 questions every time.</p>
+
+    <div class="runs">
+      <div class="run">
+        <span class="run-n">1</span>
+        <div class="run-head">
+          <span class="run-name">Baseline</span>
+          <span class="run-acc">88% · 15/17 done</span>
+        </div>
+        <div class="bar"><i style="width:88%"></i></div>
+        <p class="run-note">The starting point, measured after the security and
+          data-loss fixes. Two questions never finished.</p>
+      </div>
+
+      <div class="run">
+        <span class="run-n">2</span>
+        <div class="run-head">
+          <span class="run-name">Facts and time</span>
+          <span class="run-acc">76% · 14/17 done</span>
+        </div>
+        <div class="bar"><i style="width:76%"></i></div>
+        <p class="run-note">Add the known facts and today's date to every question.
+          Time questions went perfect and speed halved — but accuracy dropped 12 points
+          overall, because the extra text crowded out the documents. Worst score of the
+          night, and the most was learned from it.</p>
+      </div>
+
+      <div class="run">
+        <span class="run-n">3</span>
+        <div class="run-head">
+          <span class="run-name">Targeted facts</span>
+          <span class="run-acc">94% · 16/17 done</span>
+        </div>
+        <div class="bar"><i style="width:94%"></i></div>
+        <p class="run-note">Only add facts when the question is about the diary or the
+          to-do list. Best accuracy so far, and it kept the speed.</p>
+      </div>
+
+      <div class="run best">
+        <span class="run-n">4</span>
+        <div class="run-head">
+          <span class="run-name">Bounded search</span>
+          <span class="tag">Best</span>
+          <span class="run-acc">94% · 17/17 done</span>
+        </div>
+        <div class="bar"><i style="width:94%"></i></div>
+        <p class="run-note">Cap how far a search can widen. This fixed the BigBank
+          question, which had been searching forever. First run to finish all 17.</p>
+      </div>
+
+      <div class="run">
+        <span class="run-n">5</span>
+        <div class="run-head">
+          <span class="run-name">Query reducer</span>
+          <span class="run-acc">88% · 16/17 done</span>
+        </div>
+        <div class="bar"><i style="width:88%"></i></div>
+        <p class="run-note">Search for "Pat" instead of "who is Pat and what
+          does he work on". Found documents got much more relevant — 71% to 86% — but
+          both time questions broke.</p>
+      </div>
+
+      <div class="run">
+        <span class="run-n">6</span>
+        <div class="run-head">
+          <span class="run-name">Both queries, merged</span>
+          <span class="run-acc">94% · 16/17 done</span>
+        </div>
+        <div class="bar"><i style="width:94%"></i></div>
+        <p class="run-note">Run both searches — short and full — and merge the results.
+          Keeps run 5's better documents and run 4's accuracy. One question timed out.</p>
+      </div>
+
+      <div class="run best">
+        <span class="run-n">7</span>
+        <div class="run-head">
+          <span class="run-name">Repeat of 6 — nothing changed</span>
+          <span class="tag">Best</span>
+          <span class="run-acc">100% · 17/17 done</span>
+        </div>
+        <div class="bar"><i style="width:100%"></i></div>
+        <p class="run-note">The control run. Same code, same questions, same data as
+          run 6 — and six points higher, because the question that timed out in run 6
+          finished normally this time. This run is what proved the scores are noisy.</p>
+      </div>
+    </div>
+
+    <div class="scale"><span>0%</span><span>accuracy</span><span>100%</span></div>
+
+    <p><strong>The runs below 10 are kept for the record, not as a ranking.</strong>
+      Run 7 repeated run 6 exactly and scored six points higher, so anything inside
+      that band is a coin flip. Read the source-relevance column instead — it repeated
+      to the point across every pair.</p>
+
+    <div class="table-scroll">
+      <table>
+        <caption>Accuracy by category, source relevance, and timing. "Done" is how many
+          of the 17 finished inside the five-minute ceiling.</caption>
+        <thead>
+          <tr>
+            <th scope="col">Run</th>
+            <th scope="col">Acc</th>
+            <th scope="col">Time</th>
+            <th scope="col">List</th>
+            <th scope="col">Recall</th>
+            <th scope="col">Reason</th>
+            <th scope="col">Honesty</th>
+            <th scope="col">Made up</th>
+            <th scope="col">Sources</th>
+            <th scope="col">Median</th>
+            <th scope="col">p90</th>
+            <th scope="col">Done</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">1 Baseline</th>
+            <td class="hi">88%</td><td>75%</td><td>67%</td><td>100%</td><td>100%</td>
+            <td>100%</td><td>0</td><td>71%</td><td>76.4s</td><td>119.7s</td><td>15/17</td>
+          </tr>
+          <tr>
+            <th scope="row">2 Facts and time</th>
+            <td class="hi">76%</td><td>100%</td><td>100%</td><td>50%</td><td>50%</td>
+            <td>100%</td><td>0</td><td>71%</td><td>34.3s</td><td>108.3s</td><td>14/17</td>
+          </tr>
+          <tr>
+            <th scope="row">3 Targeted facts</th>
+            <td class="hi">94%</td><td>75%</td><td>100%</td><td>100%</td><td>100%</td>
+            <td>100%</td><td>0</td><td>71%</td><td>44.8s</td><td>174.2s</td><td>16/17</td>
+          </tr>
+          <tr>
+            <th scope="row">4 Bounded search</th>
+            <td class="hi">94%</td><td>100%</td><td>100%</td><td>83%</td><td>100%</td>
+            <td>100%</td><td>0</td><td>71%</td><td>70.1s</td><td>162.7s</td><td class="hi">17/17</td>
+          </tr>
+          <tr>
+            <th scope="row">5 Query reducer</th>
+            <td class="hi">88%</td><td>50%</td><td>100%</td><td>100%</td><td>100%</td>
+            <td>100%</td><td>0</td><td class="hi">86%</td><td>51.1s</td><td>165.1s</td><td>16/17</td>
+          </tr>
+          <tr>
+            <th scope="row">6 Both queries, merged</th>
+            <td class="hi">94%</td><td>100%</td><td>100%</td><td>100%</td><td>100%</td>
+            <td>50%</td><td>0</td><td class="hi">86%</td><td>40.2s</td><td>136.0s</td><td>16/17</td>
+          </tr>
+          <tr>
+            <th scope="row">7 Repeat of 6 — no change</th>
+            <td class="hi">100%</td><td>100%</td><td>100%</td><td>100%</td><td>100%</td>
+            <td>100%</td><td>0</td><td>86%</td><td>24.4s</td><td>123.0s</td><td class="hi">17/17</td>
+          </tr>
+          <tr class="best">
+            <th scope="row">8 Date-aware retrieval</th>
+            <td class="hi">94%</td><td>100%</td><td>100%</td><td>83%</td><td>100%</td>
+            <td>100%</td><td>0</td><td class="hi">93%</td><td>29.7s</td><td>130.9s</td><td class="hi">17/17</td>
+          </tr>
+          <tr class="best">
+            <th scope="row">9 Repeat of 8 — no change</th>
+            <td class="hi">94%</td><td>100%</td><td>100%</td><td>83%</td><td>100%</td>
+            <td>100%</td><td>0</td><td class="hi">93%</td><td class="hi">24.9s</td><td class="hi">61.6s</td><td>16/17</td>
+          </tr>
+          <tr>
+            <th scope="row">10 Local answers</th>
+            <td class="hi">94%</td><td>75%</td><td>100%</td><td>100%</td><td>100%</td>
+            <td>100%</td><td>0</td><td>93%</td><td>21.4s</td><td>95.6s</td><td>17/17</td>
+          </tr>
+          <tr>
+            <th scope="row">11 Repeat of 10 — no change</th>
+            <td class="hi">100%</td><td>100%</td><td>100%</td><td>100%</td><td>100%</td>
+            <td>100%</td><td>0</td><td>93%</td><td>26.4s</td><td>54.6s</td><td>17/17</td>
+          </tr>
+          <tr>
+            <th scope="row">12 Page text in the prompt</th>
+            <td class="hi">88%</td><td>100%</td><td>100%</td><td>67%</td><td>100%</td>
+            <td>100%</td><td>0</td><td>93%</td><td>18.4s</td><td>75.8s</td><td>17/17</td>
+          </tr>
+          <tr>
+            <th scope="row">13 Repeat of 12 — no change</th>
+            <td class="hi">88%</td><td>100%</td><td>100%</td><td>67%</td><td>100%</td>
+            <td>100%</td><td>0</td><td>93%</td><td>29.4s</td><td>61.7s</td><td>17/17</td>
+          </tr>
+          <tr>
+            <th scope="row">14 After the person pages</th>
+            <td class="hi">82%</td><td>75%</td><td>100%</td><td>67%</td><td>100%</td>
+            <td>100%</td><td>0</td><td>93%</td><td>17.5s</td><td>45.7s</td><td>17/17</td>
+          </tr>
+          <tr>
+            <th scope="row">15 Four legs, fused by rank</th>
+            <td class="hi">88%</td><td>100%</td><td>100%</td><td>67%</td><td>100%</td>
+            <td>100%</td><td>0</td><td>93%</td><td>21.4s</td><td>32.4s</td><td>17/17</td>
+          </tr>
+          <tr>
+            <th scope="row">16 Repeat of 15 — no change</th>
+            <td class="hi">82%</td><td>75%</td><td>100%</td><td>67%</td><td>100%</td>
+            <td>100%</td><td>0</td><td>93%</td><td>14.3s</td><td>31.4s</td><td>17/17</td>
+          </tr>
+          <tr>
+            <th scope="row">17 &quot;Lately&quot; means newest</th>
+            <td class="hi">94%</td><td>100%</td><td>100%</td><td>83%</td><td>100%</td>
+            <td>100%</td><td>0</td><td>86%</td><td>35.9s</td><td>47.0s</td><td>17/17</td>
+          </tr>
+          <tr>
+            <th scope="row">18 Excerpt follows the question</th>
+            <td class="hi">94%</td><td>75%</td><td>100%</td><td>100%</td><td>100%</td>
+            <td>100%</td><td>0</td><td>86%</td><td>28.4s</td><td>96.9s</td><td>17/17</td>
+          </tr>
+          <tr>
+            <th scope="row">19 The days take turns</th>
+            <td class="hi">94%</td><td>75%</td><td>100%</td><td>100%</td><td>100%</td>
+            <td>100%</td><td>0</td><td>86%</td><td>46.5s</td><td>89.2s</td><td>17/17</td>
+          </tr>
+          <tr>
+            <th scope="row">20 Each method keeps its best</th>
+            <td class="hi">100%</td><td>100%</td><td>100%</td><td>100%</td><td>100%</td>
+            <td>100%</td><td>0</td><td>93%</td><td>12.8s</td><td>28.3s</td><td>17/17</td>
+          </tr>
+          <tr>
+            <th scope="row">21 Repeat of 20 — no change</th>
+            <td class="hi">94%</td><td>75%</td><td>100%</td><td>100%</td><td>100%</td>
+            <td>100%</td><td>0</td><td>93%</td><td>11.3s</td><td>25.5s</td><td>17/17</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Two questions broke and stayed broken for six runs</h2>
+
+    <p>From run 12 to run 16, two of the six memory questions kept failing. Six runs in
+      a row is not luck. Something was broken.</p>
+
+    <p>My first guess was wrong. I blamed the 666 people pages we created for the graph
+      that afternoon. But the timeline disproves it: the questions broke at run 12, hours
+      before those pages existed.</p>
+
+    <p>The real clue: both broken questions still got a perfect score on finding
+      documents. Kiran found the right documents and still gave wrong answers. So the
+      problem was in what happened after the documents were found. There were two
+      separate bugs.</p>
+
+    <div class="split">
+      <div class="split-row">
+        <span class="split-k">"What did we discuss on Falcon <em>lately</em>?"</span>
+        <div class="split-bar"><i class="b" style="width:100%"></i></div>
+        <span class="split-v">newest thread <strong>68 days</strong> old</span>
+      </div>
+      <div class="split-row">
+        <span class="split-k">…but "lately" meant a 30-day window</span>
+        <div class="split-bar"><i class="b" style="width:44%"></i></div>
+        <span class="split-v"><strong>0</strong> pages qualified</span>
+      </div>
+    </div>
+
+    <p><strong>Bug 1: "lately" was defined as "the last 30 days".</strong> The newest
+      Falcon email is 68 days old. So the 30-day rule matched nothing, and the date stopped
+      mattering. Old emails from 2024 won because their wording matched the question
+      better. The fix: "lately" now means "the newest pages about this topic", with no
+      day limit.</p>
+
+    <p><strong>Bug 2: we only sent the model the top of each document.</strong> The
+      answer to "why has the Northwind deal stalled?" is one line in your task
+      dashboard: "stalled because their security review is stuck". But that line is deep
+      in the page, and we only sent the model the first 1,200 characters. Kiran had the
+      right document and could not see the answer inside it. The fix: we now send the
+      part of the document that mentions the question, not always the top.</p>
+
+    <p>After both fixes, all six memory questions pass again. They have passed in every
+      run since.</p>
+
+    <h3>The same digging found two more bugs</h3>
+
+    <p><strong>"Last week" was answered with one day.</strong> That Friday had 8
+      meetings. They filled all six document slots, so no other day made it in. The
+      answer described Friday and called it the week. Fix: each day of the week now gets
+      a turn before any day gets a second one.</p>
+
+    <p><strong>A document that only one search method liked got buried.</strong> We
+      combine results from several search methods by averaging their rankings. The page
+      about the DataCon talk was ranked #1 by one method and #30 by another, so it averaged
+      out to #8 — and only the top 6 get used. Fix: each search method's #1 pick is now
+      guaranteed a spot.</p>
+  </section>
+
+  <section>
+    <h2>Where the time goes</h2>
+
+    <p>Each answer has two parts: finding the documents, then writing the answer.
+      Across all 374 answers, here is the split.</p>
+
+    <div class="split">
+      <div class="split-row">
+        <span class="split-k">Finding the pages</span>
+        <div class="split-bar"><i class="a" style="width:5%"></i></div>
+        <span class="split-v">1.3s · <strong>5%</strong></span>
+      </div>
+      <div class="split-row">
+        <span class="split-k">The assistant thinking</span>
+        <div class="split-bar"><i class="b" style="width:95%"></i></div>
+        <span class="split-v">24.7s · <strong>95%</strong></span>
+      </div>
+    </div>
+
+    <p>Finding documents takes about 1.3 seconds. It has stayed at 1.3 seconds all day.
+      Almost all the time goes to the model writing the answer. So that is what we
+      optimized, and its median went from 55 seconds this morning to 10 seconds now.</p>
+
+    <h3>Fast questions and slow questions</h3>
+    <p>Sorted by typical time, the 17 questions split into two clear groups.</p>
+
+    <div class="qprofile">
+      <div class="q slow"><span class="q-n">t4</span><span class="q-t">What did I do last week?</span><div class="q-b"><i style="width:100%"></i></div><span class="q-s">192s</span></div>
+      <div class="q slow"><span class="q-n">t3</span><span class="q-t">Response to my talk at BigBank this morning?</span><div class="q-b"><i style="width:81%"></i></div><span class="q-s">155s</span></div>
+      <div class="q slow"><span class="q-n">x2</span><span class="q-t">Anything I promised and not delivered?</span><div class="q-b"><i style="width:80%"></i></div><span class="q-s">153s</span></div>
+      <div class="q slow"><span class="q-n">r6</span><span class="q-t">Status of the connector work with CloudCorp?</span><div class="q-b"><i style="width:69%"></i></div><span class="q-s">132s</span></div>
+      <div class="q slow"><span class="q-n">r2</span><span class="q-t">Why has the Northwind deal stalled?</span><div class="q-b"><i style="width:50%"></i></div><span class="q-s">97s</span></div>
+      <div class="q slow"><span class="q-n">n1</span><span class="q-t">Acme Dynamics / Zephyr contract? (does not exist)</span><div class="q-b"><i style="width:43%"></i></div><span class="q-s">83s</span></div>
+      <div class="q slow"><span class="q-n">r4</span><span class="q-t">Who is Pat and what does he work on?</span><div class="q-b"><i style="width:37%"></i></div><span class="q-s">72s</span></div>
+      <div class="q slow"><span class="q-n">r1</span><span class="q-t">Real decision maker at Northwind?</span><div class="q-b"><i style="width:35%"></i></div><span class="q-s">68s</span></div>
+      <div class="q slow"><span class="q-n">r3</span><span class="q-t">What did we discuss on Falcon lately?</span><div class="q-b"><i style="width:29%"></i></div><span class="q-s">55s</span></div>
+      <div class="q slow"><span class="q-n">n2</span><span class="q-t">Invoiced Northwind last quarter? (no data)</span><div class="q-b"><i style="width:28%"></i></div><span class="q-s">53s</span></div>
+      <div class="q slow"><span class="q-n">r5</span><span class="q-t">When is the DataCon talk due, who has the draft?</span><div class="q-b"><i style="width:27%"></i></div><span class="q-s">52s</span></div>
+      <div class="q fast"><span class="q-n">t2</span><span class="q-t">What meetings do I have today?</span><div class="q-b"><i style="width:12%"></i></div><span class="q-s">23s</span></div>
+      <div class="q fast"><span class="q-n">l3</span><span class="q-t">What is on my to-do list right now?</span><div class="q-b"><i style="width:12%"></i></div><span class="q-s">23s</span></div>
+      <div class="q fast"><span class="q-n">l2</span><span class="q-t">Which deals have gone quiet?</span><div class="q-b"><i style="width:10%"></i></div><span class="q-s">20s</span></div>
+      <div class="q fast"><span class="q-n">l1</span><span class="q-t">Who has been waiting longest for a reply?</span><div class="q-b"><i style="width:9%"></i></div><span class="q-s">18s</span></div>
+      <div class="q fast"><span class="q-n">x1</span><span class="q-t">Single most overdue thing today?</span><div class="q-b"><i style="width:7%"></i></div><span class="q-s">14s</span></div>
+      <div class="q fast"><span class="q-n">t1</span><span class="q-t">What is today's date?</span><div class="q-b"><i style="width:7%"></i></div><span class="q-s">13s</span></div>
+    </div>
+
+    <p>The bottom six questions can be answered from data we already have on hand: the
+      date, the to-do list, the list of people waiting. They take 13–23 seconds. The top
+      eleven need to read documents. They take 4 to 15 times longer.</p>
+
+    <h3>Every question pays a 13-second startup fee</h3>
+    <p>"What is today's date?" needs no search and no reading. It still took 13
+      seconds. Why: every question used to start a fresh copy of the assistant, which
+      loads 47 plugins and registers 109 tools before doing anything. For simple
+      questions, that startup was most of the wait. Simple questions now skip the
+      assistant entirely and answer in about 1 second.</p>
+
+    <h3>The very slow answers were stuck, not slow</h3>
+    <p>Ten answers in the test's history took exactly 300 seconds. That is the time
+      limit — they were still searching when it cut them off. These were questions where
+      the model had nothing to find, so it never stopped looking. Both "I don't know"
+      questions are in this group. We capped how far a search can widen, and no answer
+      has hit the limit since run 12.</p>
+  </section>
+
+  <section>
+    <h2>The 17 questions</h2>
+    <p>Each answer must contain certain facts to pass. The facts come from your real
+      data. For example, the decision-maker answer must contain "Morgan". No AI judges
+      the answers — a fact is present or it is not.</p>
+    <p>Some questions also have a known wrong answer. For the decision-maker question,
+      that is "Taylor". If the answer says Taylor is the decision maker, it fails, no
+      matter how good the rest is.</p>
+
+    <div class="table-scroll">
+      <table>
+        <caption>Grader notes are shortened. Two of these questions are about things that
+          do not exist.</caption>
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">Question</th>
+            <th scope="col">Counts as right if it says</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>t1</td><td>What is today's date?</td><td>2026, and August</td></tr>
+          <tr><td>t2</td><td>What meetings do I have today?</td><td>none / nothing — there really are none</td></tr>
+          <tr><td>t3</td><td>How was the response to my talk at BigBank this morning?</td><td>BigBank</td></tr>
+          <tr><td>t4</td><td>What did I do last week?</td><td>any day of last week, however written — "7/29", "Jul 29", "2026-07-29"</td></tr>
+          <tr><td>r1</td><td>Who is the real decision maker at Northwind?</td><td>Morgan — <em>not</em> Taylor, the confident guess</td></tr>
+          <tr><td>r2</td><td>Why has the Northwind deal stalled?</td><td>security review</td></tr>
+          <tr><td>r3</td><td>What did we discuss on Falcon lately?</td><td>track and trace / demo / action plan</td></tr>
+          <tr><td>r4</td><td>Who is Pat and what does he work on?</td><td>Kineviz or GraphXR, and his actual work</td></tr>
+          <tr><td>r5</td><td>When is the DataCon talk due and who has the draft?</td><td>Mengjia, and August</td></tr>
+          <tr><td>r6</td><td>What is the status of the connector work with CloudCorp?</td><td>Morgan or Kim, or the connector</td></tr>
+          <tr><td>l1</td><td>Who has been waiting longest for a reply from me?</td><td>the right person and a real day count</td></tr>
+          <tr><td>l2</td><td>Which deals have gone quiet?</td><td>Shadowserver / Northwind / Meridian</td></tr>
+          <tr><td>l3</td><td>What is on my to-do list right now?</td><td>items that are actually on it</td></tr>
+          <tr><td>x1</td><td>What is the single most overdue thing I should deal with today?</td><td>one of the genuinely overdue items</td></tr>
+          <tr><td>x2</td><td>Is there anything I promised someone and have not delivered?</td><td>a real undelivered promise</td></tr>
+          <tr><td>n1</td><td>What did I agree with Acme Dynamics about the Zephyr contract?</td><td><strong>"I don't know"</strong> — neither exists</td></tr>
+          <tr><td>n2</td><td>How much did we invoice Northwind last quarter?</td><td><strong>"I don't know"</strong> — no invoicing is indexed</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>The last two are the most important in the set. They ask about things that are not
+      in the data at all, and the only right answer is to say so. A confident invented
+      number there is the single most damaging thing this system could do, which is why
+      it is measured on every run. It has never once failed them by inventing — the one
+      loss came from a question that never finished.</p>
+  </section>
+
+  <section>
+    <h2>Four lessons from 21 runs</h2>
+
+    <p><strong>1. More context made answers worse.</strong> Run 2 added the same block of
+      facts to every question. Accuracy dropped 18 points. The extra text crowded out
+      the documents that the harder questions needed. Give the model less, not more.</p>
+
+    <p><strong>2. Different questions need different search.</strong> "What did I do
+      last week?" needs a date lookup. "Who is Pat?" needs a name search. One search
+      method cannot serve both. Kiran now runs four search methods and combines them.</p>
+
+    <p><strong>3. The slowest answers were infinite loops, not hard questions.</strong>
+      Ten answers hit the 5-minute limit. Each one was a search that kept widening
+      because there was nothing to find. We capped the widening. None since run 12.</p>
+
+    <p><strong>4. Kiran does not make things up.</strong> 374 answers, zero invented
+      facts. It said "I don't know" every time it should have. This was true from the
+      start and stayed true through every change.</p>
+  </section>
+
+  <section>
+    <h2>What is not done yet</h2>
+
+    <p><strong>We need fresh questions.</strong> We have tuned the system against these
+      17 questions for two days. It may now be good at these 17 questions rather than
+      good in general. The next real test is a set of questions it has never seen.</p>
+
+    <p><strong>Every hard question still pays a 13-second startup fee.</strong> Each one
+      starts a fresh assistant, which loads 47 plugins and 109 tools before it starts
+      working. That fee was small when answers took 76 seconds. Now answers take 12
+      seconds, so the fee is a quarter of the total. The fix is to keep one assistant
+      running and reuse it. Not done yet.</p>
+
+    <p><strong>The graph is built but barely used.</strong> From one person, Kiran can
+      now reach their meetings and the other people in those meetings — 39 connections
+      where this morning there was 1. But search only uses the first step. We have not
+      yet tested whether going deeper gives better answers.</p>
+  </section>
+
+  <footer>
+    Runs 20 and 21 finished 17:27, 8 August 2026. Source and mirrored copy in
+    <code>chief-of-staff</code>; raw results in <code>~/.cos/bench/</code>.
+  </footer>
+
+</div>

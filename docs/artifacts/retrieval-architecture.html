@@ -1,0 +1,540 @@
+<title>How Kiran finds answers</title>
+
+<style>
+  :root {
+    --paper:     #F1F1F6;
+    --surface:   #FFFFFF;
+    --sunk:      #E7E7F0;
+    --ink:       #17182A;
+    --ink-2:     #545872;
+    --ink-3:     #8288A2;
+    --rule:      #D9DAE6;
+    --rule-soft: #E8E9F1;
+    --accent:    #4A3DA0;
+    --accent-dim:#C9C4EA;
+    --fault:     #A23A4C;
+    --fault-dim: #EBD2D7;
+    --good:      #2E6F50;
+
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:     #0F0F18;
+      --surface:   #191A26;
+      --sunk:      #212232;
+      --ink:       #E6E7F2;
+      --ink-2:     #9DA1B8;
+      --ink-3:     #757A94;
+      --rule:      #2B2C3C;
+      --rule-soft: #232433;
+      --accent:    #9C90F2;
+      --accent-dim:#3A3568;
+      --fault:     #E4909D;
+      --fault-dim: #492B34;
+      --good:      #74C39A;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:     #0F0F18;
+    --surface:   #191A26;
+    --sunk:      #212232;
+    --ink:       #E6E7F2;
+    --ink-2:     #9DA1B8;
+    --ink-3:     #757A94;
+    --rule:      #2B2C3C;
+    --rule-soft: #232433;
+    --accent:    #9C90F2;
+    --accent-dim:#3A3568;
+    --fault:     #E4909D;
+    --fault-dim: #492B34;
+    --good:      #74C39A;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.62;
+    margin: 0;
+    padding: clamp(28px, 5vw, 64px) clamp(18px, 5vw, 32px) 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 50rem; margin: 0 auto; display: flex; flex-direction: column; gap: 2.5rem; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0;
+  }
+
+  h1 {
+    font-size: clamp(28px, 6vw, 40px);
+    font-weight: 660;
+    letter-spacing: -.028em;
+    line-height: 1.1;
+    text-wrap: balance;
+    margin: .5rem 0 0;
+  }
+
+  .deck { color: var(--ink-2); font-size: 18.5px; margin: .8rem 0 0; max-width: 36rem; text-wrap: pretty; }
+
+  header { border-bottom: 1px solid var(--rule); padding-bottom: 2rem; }
+
+  section { display: flex; flex-direction: column; gap: 1rem; }
+
+  h2 {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    margin: 0;
+    padding-bottom: .5rem;
+    border-bottom: 2px solid var(--accent);
+    align-self: flex-start;
+  }
+
+  h3 { font-size: 17.5px; font-weight: 620; letter-spacing: -.012em; margin: .7rem 0 -.4rem; text-wrap: balance; }
+
+  p { margin: 0; text-wrap: pretty; }
+  strong { font-weight: 620; }
+
+  code {
+    font-family: var(--mono);
+    font-size: .845em;
+    background: var(--sunk);
+    padding: .12em .36em;
+    border-radius: 3px;
+  }
+
+  ul { margin: 0; padding-left: 1.15rem; display: flex; flex-direction: column; gap: .55rem; }
+  li::marker { color: var(--ink-3); }
+
+  /* ---------- figures ---------- */
+
+  figure {
+    margin: .5rem 0;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1.1rem 1.1rem .3rem;
+    overflow-x: auto;
+  }
+
+  figure svg { display: block; width: 100%; max-width: 100%; height: auto; min-width: 460px; }
+
+  figcaption {
+    font-size: 14px;
+    color: var(--ink-2);
+    line-height: 1.5;
+    padding: .85rem .1rem 1rem;
+    border-top: 1px solid var(--rule-soft);
+    margin-top: .8rem;
+  }
+
+  .dgm-box { fill: var(--surface); stroke: var(--rule); stroke-width: 1.5; }
+  .dgm-box-a { fill: var(--sunk); stroke: var(--accent); stroke-width: 1.5; }
+  .dgm-box-f { fill: var(--fault-dim); stroke: var(--fault); stroke-width: 1.5; }
+  .dgm-t { font-family: var(--sans); font-size: 12.5px; fill: var(--ink); }
+  .dgm-t-b { font-family: var(--sans); font-size: 12.5px; font-weight: 620; fill: var(--ink); }
+  .dgm-s { font-family: var(--mono); font-size: 10.5px; fill: var(--ink-3); }
+  .dgm-s-a { font-family: var(--mono); font-size: 10.5px; fill: var(--accent); }
+  .dgm-s-f { font-family: var(--mono); font-size: 10.5px; fill: var(--fault); }
+  .dgm-l { stroke: var(--ink-3); stroke-width: 1.4; fill: none; }
+  .dgm-l-a { stroke: var(--accent); stroke-width: 1.8; fill: none; }
+  .dgm-l-f { stroke: var(--fault); stroke-width: 1.4; fill: none; stroke-dasharray: 4 3; }
+
+  /* ---------- faults ---------- */
+
+  .faults { display: flex; flex-direction: column; gap: 1px; background: var(--rule-soft);
+            border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+  .fault { background: var(--surface); padding: 1rem 1.1rem 1.1rem; display: flex; flex-direction: column; gap: .45rem; }
+  .fault h3 { margin: 0; font-size: 16.5px; }
+  .fault p { font-size: 16px; color: var(--ink-2); }
+  .measure {
+    font-family: var(--mono); font-size: 12.5px; color: var(--fault);
+    background: var(--fault-dim); border-radius: 3px; padding: .5rem .7rem;
+    align-self: flex-start; max-width: 100%; overflow-x: auto; white-space: pre-wrap;
+  }
+  .measure.ok { color: var(--good); background: transparent; border: 1px solid var(--rule); }
+
+  /* ---------- table ---------- */
+
+  .scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 4px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+  th, td { padding: .55rem .75rem; text-align: left; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  th { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase;
+       color: var(--ink-3); border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.n { font-family: var(--mono); white-space: nowrap; }
+  .yes { color: var(--good); font-weight: 600; }
+  .no  { color: var(--fault); font-weight: 600; }
+
+  footer { border-top: 1px solid var(--rule); padding-top: 1.4rem; font-size: 13.5px; color: var(--ink-3); }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Kiran · retrieval architecture · 8 August 2026</p>
+    <h1>How Kiran finds answers</h1>
+    <p class="deck">What happens between your question and the reply, what was broken,
+      and what we fixed. Every number here was measured, not estimated.</p>
+  </header>
+
+  <section>
+    <h2>The problem: search ignored dates</h2>
+    <p>You asked how your talk went this morning. The search found emails from February
+      2026 and November 2025 — the wrong months. The answer came out right anyway,
+      through luck: there were so few emails on that topic that the best match happened
+      to be the right one. On a common topic, that luck runs out.</p>
+    <p>Why did this happen? Every page in the brain has a date. Search never looked at
+      it. There was also no way to ask "what happened between these two dates" at all.
+      The search tools take no date input.</p>
+    <p>The fix was not better search-by-meaning. The fix was adding a second way to
+      find pages: by date.</p>
+  </section>
+
+  <section>
+    <h2>The path a question takes</h2>
+
+    <figure>
+      <svg viewBox="0 0 900 366" role="img"
+           aria-label="A question is split into reduced terms, the whole question, and a date window; the first two go to vector search over the brain and the third to a date index; all three merge into ranking and filtering, which passes six pages into the prompt; the agent may search again up to twice before answering with sources.">
+        <defs>
+          <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+        <g color="var(--ink-3)">
+
+          <!-- question -->
+          <rect class="dgm-box-a" x="8" y="140" width="112" height="52" rx="4"/>
+          <text class="dgm-t-b" x="64" y="162" text-anchor="middle">Your question</text>
+          <text class="dgm-s" x="64" y="179" text-anchor="middle">dashboard / telegram</text>
+
+          <!-- fan out -->
+          <path class="dgm-l" d="M120 166 L 150 166 L 150 52 L 186 52" marker-end="url(#a1)"/>
+          <path class="dgm-l" d="M150 166 L 186 166" marker-end="url(#a1)"/>
+          <path class="dgm-l" d="M150 166 L 150 280 L 186 280" marker-end="url(#a1)"/>
+
+          <rect class="dgm-box" x="186" y="28" width="146" height="48" rx="4"/>
+          <text class="dgm-t" x="259" y="48" text-anchor="middle">Reduced terms</text>
+          <text class="dgm-s" x="259" y="64" text-anchor="middle">stopwords stripped</text>
+
+          <rect class="dgm-box" x="186" y="142" width="146" height="48" rx="4"/>
+          <text class="dgm-t" x="259" y="162" text-anchor="middle">Whole question</text>
+          <text class="dgm-s" x="259" y="178" text-anchor="middle">verbatim</text>
+
+          <rect class="dgm-box-a" x="186" y="256" width="146" height="48" rx="4"/>
+          <text class="dgm-t" x="259" y="276" text-anchor="middle">Date window</text>
+          <text class="dgm-s-a" x="259" y="292" text-anchor="middle">"last week" → Jul 27–Aug 2</text>
+
+          <!-- to indexes -->
+          <path class="dgm-l" d="M332 52 L 372 52 L 372 96 L 400 96" marker-end="url(#a1)"/>
+          <path class="dgm-l" d="M332 166 L 372 166 L 372 96 L 400 96" marker-end="url(#a1)"/>
+          <path class="dgm-l-a" d="M332 280 L 400 280" marker-end="url(#a1)"/>
+
+          <rect class="dgm-box" x="400" y="72" width="150" height="48" rx="4"/>
+          <text class="dgm-t" x="475" y="92" text-anchor="middle">Vector search</text>
+          <text class="dgm-s" x="475" y="108" text-anchor="middle">52,876 embedded chunks</text>
+
+          <rect class="dgm-box-a" x="400" y="256" width="150" height="48" rx="4"/>
+          <text class="dgm-t" x="475" y="276" text-anchor="middle">Date index</text>
+          <text class="dgm-s-a" x="475" y="292" text-anchor="middle">27,448 dated pages</text>
+
+          <text class="dgm-s" x="366" y="42" text-anchor="middle">×2 queries</text>
+          <text class="dgm-s" x="475" y="136" text-anchor="middle">top 30 each</text>
+
+          <!-- merge -->
+          <path class="dgm-l" d="M550 96 L 588 96 L 588 166 L 618 166" marker-end="url(#a1)"/>
+          <path class="dgm-l-a" d="M550 280 L 588 280 L 588 166 L 618 166" marker-end="url(#a1)"/>
+
+          <rect class="dgm-box" x="618" y="130" width="150" height="72" rx="4"/>
+          <text class="dgm-t-b" x="693" y="152" text-anchor="middle">Rank and filter</text>
+          <text class="dgm-s" x="693" y="169" text-anchor="middle">similarity + window</text>
+          <text class="dgm-s" x="693" y="183" text-anchor="middle">+ recency, dedup</text>
+          <text class="dgm-s" x="693" y="197" text-anchor="middle">keep 6</text>
+
+          <!-- prompt / agent -->
+          <path class="dgm-l" d="M693 202 L 693 236" marker-end="url(#a1)"/>
+          <rect class="dgm-box" x="600" y="236" width="186" height="46" rx="4"/>
+          <text class="dgm-t" x="693" y="255" text-anchor="middle">Prompt</text>
+          <text class="dgm-s" x="693" y="271" text-anchor="middle">date · facts · the 6 pages</text>
+
+          <path class="dgm-l" d="M693 282 L 693 310" marker-end="url(#a1)"/>
+          <rect class="dgm-box-a" x="600" y="310" width="186" height="46" rx="4"/>
+          <text class="dgm-t-b" x="693" y="329" text-anchor="middle">The agent</text>
+          <text class="dgm-s" x="693" y="345" text-anchor="middle">gbrain + clock, 108 tools</text>
+
+          <!-- loop back -->
+          <path class="dgm-l" d="M786 333 L 830 333 L 830 96 L 550 96" marker-end="url(#a1)"/>
+          <text class="dgm-s" x="812" y="212" text-anchor="middle" transform="rotate(-90 812 212)">may search again, ≤2×</text>
+
+          <!-- answer -->
+          <path class="dgm-l" d="M600 333 L 470 333" marker-end="url(#a1)"/>
+          <rect class="dgm-box" x="320" y="310" width="150" height="46" rx="4"/>
+          <text class="dgm-t" x="395" y="329" text-anchor="middle">Answer</text>
+          <text class="dgm-s" x="395" y="345" text-anchor="middle">plain text + source links</text>
+        </g>
+      </svg>
+      <figcaption>The whole path. The indigo parts — the date window and the date index
+        — are new today. Before them, "what did I do last week" was answered by which
+        pages <em>sounded</em> like the words "last week". The search takes about one
+        second. The results appear on screen while the model is still writing.</figcaption>
+    </figure>
+
+    <p>Two notes on this picture. First, the model can also search on its own if the
+      six pages are not enough. That is why a bad first search often still produced a
+      right answer — just slowly. Second, we hand the model the six pages directly, so
+      it does not waste time finding them again.</p>
+  </section>
+
+  <section>
+    <h2>Kiran now searches four ways at once</h2>
+
+    <p>Each way is good at something the others cannot do. Until today, only the first
+      one was used.</p>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Kind</th><th>Answers well</th><th>Fails at</th><th>Cost</th><th>Used?</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Vector</strong><br><span class="dgm-s">meaning</span></td>
+            <td>"Who is the real decision maker at Northwind?" — finds the thread that
+                <em>means</em> this, whatever words it used.</td>
+            <td>Anything about time. It has no idea when a page is from.</td>
+            <td class="n">0.8 s</td>
+            <td class="yes">yes</td>
+          </tr>
+          <tr>
+            <td><strong>Keyword</strong><br><span class="dgm-s">exact words</span></td>
+            <td>Names, codenames, invoice numbers — the strings that must match exactly.</td>
+            <td>Paraphrase. "Audience reaction" never matches "great talk".</td>
+            <td class="n">0.8 s</td>
+            <td class="yes">folded in</td>
+          </tr>
+          <tr>
+            <td><strong>Graph</strong><br><span class="dgm-s">links</span></td>
+            <td>"Everything connected to Northwind" — the company page, its people, the
+                threads that name them. 13,074 edges already exist.</td>
+            <td>Starting cold. It needs a page to start from.</td>
+            <td class="n">&lt;0.1 s</td>
+            <td class="no">not yet</td>
+          </tr>
+          <tr>
+            <td><strong>Date</strong><br><span class="dgm-s">when</span></td>
+            <td>"What did I do last week?" — the only thing that can answer it truthfully.</td>
+            <td>Topics. A date range is not a subject.</td>
+            <td class="n">&lt;0.1 s</td>
+            <td class="yes">new today</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Vector search is the right default, but it should not be the only one. The rule now:
+      <strong>a question with a topic is found by meaning and ordered by time; a question
+      with only a time is found by time.</strong> To tell which kind a question is, we
+      remove the time phrase and see whether anything is left.</p>
+
+    <figure>
+      <svg viewBox="0 0 900 300" role="img"
+           aria-label="Before: the question What did I do last week is embedded and returns emails from 2025, 2026 and 2020 that contain the words last week. After: the time phrase is removed, nothing remains, so the date index returns real meetings from 27 July to 2 August 2026.">
+        <defs>
+          <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+        <g color="var(--ink-3)">
+          <text class="dgm-t-b" x="8" y="18">“What did I do last week?”</text>
+          <text class="dgm-s" x="8" y="34">asked on Saturday 8 August 2026</text>
+
+          <!-- before -->
+          <text class="dgm-s-f" x="8" y="70">BEFORE — MATCH THE WORDS</text>
+          <line class="dgm-l-f" x1="8" y1="78" x2="430" y2="78"/>
+          <rect class="dgm-box" x="8" y="92" width="150" height="40" rx="4"/>
+          <text class="dgm-t" x="83" y="116" text-anchor="middle">embed the sentence</text>
+          <path class="dgm-l-f" d="M158 112 L 196 112" marker-end="url(#a2)"/>
+          <rect class="dgm-box-f" x="196" y="88" width="234" height="128" rx="4"/>
+          <text class="dgm-s-f" x="208" y="108">2025-08-11  what-i-wrote-last-week</text>
+          <text class="dgm-s-f" x="208" y="128">2026-04-08  sorry-i-didn't-reply-last-week</text>
+          <text class="dgm-s-f" x="208" y="148">2025-04-15  follow-up-on-last-week's-meeting</text>
+          <text class="dgm-s-f" x="208" y="168">2020-03-30  things-did-last-week-and-plan</text>
+          <text class="dgm-s-f" x="208" y="188">2025-06-27  follow-up-from-our-call-last-week</text>
+          <text class="dgm-s" x="208" y="208">…perfect wording. Wrong by up to six years.</text>
+
+          <!-- after -->
+          <text class="dgm-s-a" x="470" y="70">AFTER — MATCH THE DAYS</text>
+          <line class="dgm-l-a" x1="470" y1="78" x2="892" y2="78"/>
+          <rect class="dgm-box-a" x="470" y="92" width="150" height="40" rx="4"/>
+          <text class="dgm-t" x="545" y="110" text-anchor="middle">remove “last week”</text>
+          <text class="dgm-s-a" x="545" y="125" text-anchor="middle">nothing left → date query</text>
+          <path class="dgm-l-a" d="M620 112 L 658 112" marker-end="url(#a2)"/>
+          <rect class="dgm-box-a" x="658" y="88" width="234" height="128" rx="4"/>
+          <text class="dgm-s-a" x="670" y="108">2026-07-31  kineviz-weekly-sync</text>
+          <text class="dgm-s-a" x="670" y="128">2026-07-31  graph-tech-panel</text>
+          <text class="dgm-s-a" x="670" y="148">2026-07-31  alloydb-sync-on-graph-use-cases</text>
+          <text class="dgm-s-a" x="670" y="168">2026-07-30  standup</text>
+          <text class="dgm-s-a" x="670" y="188">2026-07-27  kickoff</text>
+          <text class="dgm-s" x="670" y="208">…99 pages fall in that week. These are the meetings.</text>
+
+          <text class="dgm-s" x="8" y="256">Same question. Same brain. The only difference is whether the</text>
+          <text class="dgm-s" x="8" y="272">retrieval is allowed to know what day it is.</text>
+        </g>
+      </svg>
+      <figcaption>The failure in one picture. Similarity is not wrong here — those emails
+        are the closest match for the phrase "last week". That is the problem. A date is
+        not a phrase. Treat it as one and you get five confident answers about the wrong
+        years.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>The five bugs we measured</h2>
+
+    <div class="faults">
+      <div class="fault">
+        <h3>1. Ranking ignored dates</h3>
+        <p>Every page has a date. Ranking never looked at it. A page from 2015 and a
+          page from yesterday competed as equals. Here is a real query — every result is
+          from the wrong year:</p>
+        <div class="measure">query: "audience reaction to my presentation"
+  0.893  2025-10-07  great-presentation
+  0.545  2023-11-16  my-presentation-to-niaid-today
+  0.538  2022-03-20  presentation
+  0.532  2022-10-28  presentation-went-very-well
+nothing from 2026.</div>
+      </div>
+
+      <div class="fault">
+        <h3>2. "What happened between these dates" could not be asked</h3>
+        <p>No search tool takes a date. The one index that was built for dates was never
+          filled — it has 120 entries for 62,781 pages, so it returns nothing for any
+          real day.</p>
+        <div class="measure">timeline_entry_count   120
+page_count          62,781
+chronicle_day("2026-08-07") → []</div>
+      </div>
+
+      <div class="fault">
+        <h3>3. A third of search results had a blank date field</h3>
+        <p>A date-aware ranker is useless on a page with no date. But the date was never
+          really missing — 99.9% of files have it in the file name. We now read it from
+          there.</p>
+        <div class="measure">11 of 30 rows had effective_date = null
+27,448 of 27,477 files carry the date in the filename</div>
+      </div>
+
+      <div class="fault">
+        <h3>4. The graph had links that led nowhere</h3>
+        <p>The brain has 13,000 links between emails and people. Search never used them.
+          When we tried to use them, we found most were broken: emails link to people
+          pages, but the importer never created those pages. Of 863 people the emails
+          link to, only 8 had a page.</p>
+        <p>We created the 658 missing pages from data the importer already had. Now the
+          links work. From one person, Kiran can reach their meetings and the people in
+          those meetings.</p>
+        <div class="measure">person pages        8  →    666
+resolved links      2  → 36,978
+meeting edges       0  →  5,264
+two-hop reach       1  →     39 nodes</div>
+      </div>
+
+      <div class="fault">
+        <h3>5. Junk mail competes with real mail</h3>
+        <p>Nothing marks a system alert or a newsletter as junk, so they compete with
+          real conversations for the six document slots. The single biggest page in the
+          brain is a repeated system alert. Not fixed yet.</p>
+        <div class="measure">atom      30,726     person     2,694
+email     25,834     meeting    1,473
+                     everything else  ~2,000</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>From 70 candidates down to 6</h2>
+    <p>You asked: is the filter step important? Yes, and we have proof. When we once
+      gave the model everything we had, accuracy dropped 18 points in one run. More
+      context made answers worse. Choosing well matters more than sending more.</p>
+    <p>Here is how we choose. The four searches return about 70 candidate pages. We
+      keep 6. The rules:</p>
+    <p><strong>Pages found by several methods rank first.</strong> If the meaning
+      search, the keyword search, and the graph all found the same page, that page is
+      probably the right one.</p>
+    <p><strong>But each method's #1 pick is guaranteed a spot.</strong> Without this
+      rule, a page that one method was sure about could get buried. It happened: the
+      page about the DataCon talk was #1 in one search and #30 in another, so on average it
+      ranked #8 and got cut.</p>
+    <p><strong>No repeats.</strong> One email thread gets at most one spot. One person
+      gets at most two. Otherwise all six spots go to one long conversation.</p>
+    <p><strong>Newer beats older — a little.</strong> If two pages match equally well,
+      the newer one wins. The nudge is kept small on purpose: the email that names
+      Northwind's decision maker is from 2025, and a strong "prefer new" rule would
+      hide it. Only when you say "lately" does the date become the main factor.</p>
+  </section>
+
+  <section>
+    <h2>Your question about meeting transcripts</h2>
+    <p>You worried that meeting notes with a summary plus a raw transcript would flood
+      the context with useless text. I checked: <strong>there are no transcripts in the
+      brain yet.</strong> The 1,613 calendar pages are just invitations. So we can set
+      the rule now, before the first transcript arrives.</p>
+    <p>The rule I recommend: <strong>search the summary, never the transcript.</strong>
+      Keep the transcript on the page so you can open and read it. But do not put it in
+      the search index. A transcript mentions the topic fifty times in small talk; a
+      summary states it once. If both are searchable, the transcript wins the search and
+      pushes out the summary — the exact opposite of what you want.</p>
+    <p>The same problem already exists with email. Threads are stored whole, with every
+      quoted reply and signature. That is why the biggest page in the brain is a
+      repeated system alert.</p>
+  </section>
+
+  <section>
+    <h2>What is fixed, and what is not</h2>
+
+    <p><strong>Fixed: dates now work.</strong> "This morning", "last week", and "in
+      July" turn into real date ranges. We include a day on each side, because you once
+      asked about "this morning" when the talk was the morning before. And the 37% of
+      search results that had a blank date field are handled too — the date was in the
+      file name all along, so we read it from there.</p>
+
+    <p><strong>Fixed, partly: the graph is connected.</strong> A name in your question
+      now leads to a person, and a company name leads to the people who write from that
+      company's email domain. From there we pull the emails and meetings that mention
+      them. We only follow one step of connections so far. Going deeper might give
+      better answers; we have not tested that yet.</p>
+
+    <p><strong>Not fixed: junk competes with real email.</strong> Nothing marks a
+      newsletter or a system alert as junk, so they compete for the same six spots as
+      real conversations. The single biggest page in the brain is a repeated system
+      alert.</p>
+
+    <p><strong>Decision needed soon: transcripts.</strong> See the section above. The
+      rule should be in place before the first transcript arrives.</p>
+  </section>
+
+  <footer>
+    Measured against the live brain on 8 August 2026: 62,781 pages, 52,876 embedded
+    chunks, 36,978 resolved links, 120 timeline entries. Code in
+    <code>chief-of-staff/src/cos/{ask,when,dateindex,retrieve,graphbuild}.py</code>.
+  </footer>
+
+</div>

@@ -1107,7 +1107,10 @@ function wirePanel(pid,pros,states){
       e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',id)});
     const open=()=>{const was=n.classList.contains('open');
       document.querySelectorAll('.r.open').forEach(x=>x.classList.remove('open'));
-      if(!was){n.classList.add('open');n.querySelector('.note').focus()}};
+      if(!was){n.classList.add('open');
+        // No autofocus on touch: focusing the note throws the phone
+        // keyboard over the panel that just opened.
+        if(!matchMedia('(hover:none)').matches) n.querySelector('.note').focus()}};
     n.querySelector('.txt').onclick=open;
     n.addEventListener('keydown',e=>{if(e.target!==n)return;
       if(e.key==='Enter'){e.preventDefault();open()}});
@@ -1169,7 +1172,10 @@ function wireList(){
       post({id,action:n.classList.contains('done')?'undone':'done'})};
     const open=()=>{const was=n.classList.contains('open');
       document.querySelectorAll('.r.open').forEach(x=>x.classList.remove('open'));
-      if(!was){n.classList.add('open');n.querySelector('.note').focus()}};
+      if(!was){n.classList.add('open');
+        // No autofocus on touch: focusing the note throws the phone
+        // keyboard over the panel that just opened.
+        if(!matchMedia('(hover:none)').matches) n.querySelector('.note').focus()}};
     n.querySelector('.txt').onclick=open;
     n.addEventListener('keydown',e=>{if(e.target!==n)return;
       if(e.key==='Enter'){e.preventDefault();open()}
@@ -1558,6 +1564,14 @@ async function boot(){
   setInterval(()=>{if(!document.hidden) refreshData()},60000);
   addEventListener('visibilitychange',()=>{if(!document.hidden) refreshData()});
 
+  // Tapping anywhere outside an open row closes its detail panel. On a
+  // laptop Escape does this; a phone has no Escape, and the report was
+  // "once I open an item's detail panel, I can't close it" — the only
+  // close affordance was re-tapping the title, which nothing suggested.
+  document.addEventListener('click',e=>{
+    const opened=document.querySelector('.r.open');
+    if(opened && !e.target.closest('.r.open')) opened.classList.remove('open');
+  });
   $('gear').onclick=openSheet; $('sclose').onclick=closeSheet; $('scrim').onclick=closeSheet;
   $('newq').onclick=newChat;
   $('srchtoggle').onclick=()=>{
