@@ -239,3 +239,49 @@ class TestAttentionListOrder:
         assert "focus_pos" not in paneldb.get_item(a["id"])["extra"]
         paneldb.set_focus(a["id"], True)
         assert self._order() == ["B", "C", "A"]
+
+
+class TestPanelsOnDemand:
+    """Wei: "UI should not be static. we should be able to on demand add a
+    new dashboard tab." Panels are rows, not code."""
+
+    def test_create_then_list(self):
+        made = paneldb.create_panel("GTM", ["Now", "Next"])
+        assert made["id"] == "gtm"
+        panels = {p["id"]: p for p in paneldb.list_panels()}
+        assert panels["gtm"]["title"] == "GTM"
+        assert panels["gtm"]["states"] == ["Now", "Next"]
+
+    def test_title_becomes_a_clean_slug(self):
+        assert paneldb.create_panel("  Q3   Hiring Plan! ")["id"] == "q3-hiring-plan"
+
+    def test_reserved_and_duplicate_names_are_refused(self):
+        with pytest.raises(ValueError, match="reserved"):
+            paneldb.create_panel("Tasks")
+        paneldb.create_panel("GTM")
+        with pytest.raises(ValueError, match="already exists"):
+            paneldb.create_panel("gtm")
+
+    def test_remove_needs_an_empty_panel(self):
+        """Deleting data from a chat message takes two deliberate steps:
+        archive the items, then remove the panel."""
+        paneldb.create_panel("GTM")
+        row = paneldb.add_item("gtm", "Pricing page")
+        with pytest.raises(ValueError, match="archive"):
+            paneldb.remove_panel("gtm")
+        paneldb.update_item(row["id"], archived=True)
+        assert paneldb.remove_panel("gtm") == "GTM"
+        assert all(p["id"] != "gtm" for p in paneldb.list_panels())
+
+    def test_builtins_cannot_be_removed(self):
+        with pytest.raises(ValueError, match="built-in"):
+            paneldb.remove_panel("prospects")
+
+    def test_custom_panel_gets_the_full_machinery(self):
+        """States learned from use, focus, notes — nothing is
+        prospects-only."""
+        paneldb.create_panel("GTM")
+        row = paneldb.add_item("gtm", "Webinars", state="Next")
+        assert "Next" in paneldb.states("gtm")
+        paneldb.set_focus(row["id"], True)
+        assert paneldb.get_item(row["id"])["extra"]["focus"] is True

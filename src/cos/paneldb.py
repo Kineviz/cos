@@ -110,6 +110,67 @@ def reset_for_tests(path: Path) -> None:
 # Panels
 
 
+# Names the UI already uses for things that are not rows in this database.
+# A custom panel wearing one of these would shadow a built-in view.
+RESERVED_IDS = {PROSPECTS, "tasks", "chat", "chats", "settings"}
+
+
+def list_panels() -> list[dict]:
+    rows = _db().execute("SELECT id, title, states FROM panels ORDER BY title")
+    return [{"id": r["id"], "title": r["title"],
+             "states": json.loads(r["states"])} for r in rows]
+
+
+def create_panel(title: str, states: list[str] | None = None) -> dict:
+    """A new panel, on demand. Wei: "UI should not be static. we should be
+    able to on demand add a new dashboard tab."
+
+    The id is a slug of the title so the assistant and the URL can name it;
+    the title keeps the user's own capitalisation. Everything else — states
+    learned from use, notes, drag order, the attention list — is the machinery
+    every panel already shares.
+    """
+    title = " ".join((title or "").split())
+    if not title:
+        raise ValueError("a panel needs a name")
+    pid = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:40]
+    if not pid or pid in RESERVED_IDS:
+        raise ValueError(f"{title!r} is reserved — pick another name")
+    with _lock:
+        db = _db()
+        if db.execute("SELECT 1 FROM panels WHERE id=?", (pid,)).fetchone():
+            raise ValueError(f"a panel called {title!r} already exists")
+        db.execute("INSERT INTO panels(id, title, states) VALUES(?,?,?)",
+                   (pid, title, json.dumps(states or [])))
+        db.commit()
+    return {"id": pid, "title": title, "states": states or []}
+
+
+def remove_panel(panel: str) -> str:
+    """Remove an empty custom panel. Never a built-in, never one with live
+    items — deleting data should take two deliberate steps (archive, then
+    remove), because this runs from a chat message."""
+    if panel in RESERVED_IDS:
+        raise ValueError("built-in panels cannot be removed")
+    with _lock:
+        db = _db()
+        row = db.execute("SELECT title FROM panels WHERE id=?",
+                         (panel,)).fetchone()
+        if row is None:
+            raise ValueError(f"no panel {panel!r}")
+        live = db.execute(
+            "SELECT COUNT(*) n FROM items WHERE panel=? AND archived=0",
+            (panel,)).fetchone()["n"]
+        if live:
+            raise ValueError(
+                f"{row['title']} still has {live} item(s) — archive them "
+                f"first, then remove the panel")
+        db.execute("DELETE FROM items WHERE panel=?", (panel,))
+        db.execute("DELETE FROM panels WHERE id=?", (panel,))
+        db.commit()
+    return row["title"]
+
+
 def ensure_panel(panel: str, title: str, states: list[str]) -> None:
     with _lock:
         db = _db()

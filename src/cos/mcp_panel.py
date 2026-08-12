@@ -57,6 +57,26 @@ def _task_by_name(needle: str):
     raise ValueError(f"No open task matches {needle!r}.")
 
 
+def _resolve(panel: str) -> str:
+    """The database panel a name refers to. "prospects" and every panel the
+    user created resolve by id or title; anything else is an error that
+    lists what exists, because guessing which panel to edit is how an item
+    lands somewhere the user never looks."""
+    pdb = _pdb()
+    needle = (panel or "").strip().lower()
+    if needle in ("", pdb.PROSPECTS):
+        pdb.ensure_panel(pdb.PROSPECTS, "Prospects", [])
+        return pdb.PROSPECTS
+    for p in pdb.list_panels():
+        if needle in (p["id"], p["title"].lower()):
+            return p["id"]
+    known = ", ".join(["tasks", "prospects"]
+                      + [p["title"] for p in pdb.list_panels()
+                         if p["id"] != pdb.PROSPECTS])
+    raise ValueError(f"No panel called {panel!r}. The panels are: {known}. "
+                     f"To make a new one, call panel_create.")
+
+
 def _panel_items(panel: str) -> str:
     if panel == "tasks":
         rows = [{"name": i.title, "state": i.bucket, "note": i.detail,
@@ -64,7 +84,7 @@ def _panel_items(panel: str) -> str:
                 for i in _agenda().build() if not i.done]
         return json.dumps(rows, ensure_ascii=False)
     rows = []
-    for r in _pdb().list_items(_pdb().PROSPECTS):
+    for r in _pdb().list_items(_resolve(panel)):
         # Newest note first; the full dated history rides along so "what did
         # I say about X in June" is answerable without another tool.
         rows.append({"name": r["name"], "state": r["state"],
@@ -81,11 +101,21 @@ def _panel_add(panel: str, name: str, state: str, note: str) -> str:
         if state in TASKS_STATES:
             _agenda().move(item.id, state)
         return f"Added task: {name}"
-    pdb = _pdb()
-    pdb.ensure_panel(pdb.PROSPECTS, "Prospects", [])
-    pdb.add_item(pdb.PROSPECTS, name, state=state, note=note)
-    _export()
-    return f"Added prospect: {name}" + (f" ({state})" if state else "")
+    pid = _resolve(panel)
+    _pdb().add_item(pid, name, state=state, note=note)
+    _export(pid)
+    return f"Added to {pid}: {name}" + (f" ({state})" if state else "")
+
+
+def _panel_create(title: str, states: list[str]) -> str:
+    """A new dashboard panel, made from a chat message. Wei: "UI should not
+    be static. we should be able to on demand add a new dashboard tab."."""
+    try:
+        made = _pdb().create_panel(title, states)
+    except ValueError as e:
+        return str(e)
+    return (f"Created the {made['title']} panel — it is on the dashboard "
+            f"now. Add items with panel_add (panel: {made['id']!r}).")
 
 
 def _panel_set(panel: str, item: str, state: str, name: str,
@@ -106,29 +136,31 @@ def _panel_set(panel: str, item: str, state: str, name: str,
                              "the to-do list itself")
         return f"{it.title}: " + (", ".join(done_bits) or "nothing to change")
     pdb = _pdb()
-    row = pdb.find_item(pdb.PROSPECTS, item)
+    pid = _resolve(panel)
+    row = pdb.find_item(pid, item)
     if row is None:
-        return (f"No single prospect matches {item!r}. "
+        return (f"No single item in {pid} matches {item!r}. "
                 "Use panel_items to see the names.")
     pdb.update_item(row["id"], name=name or None, state=state or None,
                     note=note or None)
-    _export()
+    _export(pid)
     changed = [w for w, v in
                (("stage", state), ("name", name), ("note", note)) if v]
     return f"{row['name']}: updated " + ", ".join(changed or ["nothing"])
 
 
 def _panel_focus(panel: str, item: str, on: bool) -> str:
-    if panel != "prospects":
-        return "The attention list is a prospects thing. For tasks, move it "\
-               "to today instead."
+    if panel == "tasks":
+        return "The attention list is for database panels. For tasks, move "\
+               "it to today instead."
     pdb = _pdb()
-    row = pdb.find_item(pdb.PROSPECTS, item)
+    pid = _resolve(panel)
+    row = pdb.find_item(pid, item)
     if row is None:
-        return f"No single prospect matches {item!r}."
+        return f"No single item in {pid} matches {item!r}."
     pdb.set_focus(row["id"], on)
-    _export()
-    return (f"{row['name']} is now at the top of Prospects under 'needs "
+    _export(pid)
+    return (f"{row['name']} is now at the top of {pid} under 'needs "
             f"attention now'." if on else
             f"{row['name']} cleared from 'needs attention now'.")
 
@@ -161,15 +193,16 @@ def _panel_done(panel: str, item: str) -> str:
         _agenda().act(it.id, "done")
         return f"Done: {it.title}"
     pdb = _pdb()
-    row = pdb.find_item(pdb.PROSPECTS, item)
+    pid = _resolve(panel)
+    row = pdb.find_item(pid, item)
     if row is None:
-        return f"No single prospect matches {item!r}."
+        return f"No single item in {pid} matches {item!r}."
     pdb.update_item(row["id"], archived=True)
-    _export()
+    _export(pid)
     return f"Archived: {row['name']}"
 
 
-def _export() -> None:
+def _export(panel: str = "prospects") -> None:
     """Keep the two views of the database current after a write: the
     markdown files, and the dashboard snapshot the panel is drawn from.
 
@@ -180,7 +213,12 @@ def _export() -> None:
 
     Best-effort: a failed view update must not fail the edit — the database
     is the master copy and the 15-minute refresh rebuilds both views anyway.
+
+    Custom panels need neither view: the page reads them straight from the
+    database on /api/panels, so there is nothing to go stale.
     """
+    if panel != _pdb().PROSPECTS:
+        return
     try:
         from .config import Config
         _pdb().export_markdown(Config.load().vault_root)
@@ -195,7 +233,8 @@ def _export() -> None:
 
 _PANEL_ARG = {
     "type": "string",
-    "description": 'Which panel: "tasks" or "prospects".',
+    "description": 'Which panel: "tasks", "prospects", or a custom panel '
+                   "by its name.",
 }
 
 
@@ -321,7 +360,7 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="panel_done",
             description=(
-                "Mark a task done, or archive a prospect. Both are "
+                "Mark a task done, or archive a panel item. Both are "
                 "reversible in the dashboard."
             ),
             inputSchema={
@@ -331,6 +370,30 @@ async def list_tools() -> list[Tool]:
                     "item": {"type": "string"},
                 },
                 "required": ["panel", "item"],
+            },
+        ),
+        Tool(
+            name="panel_create",
+            description=(
+                "Create a NEW dashboard panel — a new tab with the same "
+                "machinery as Prospects: items with states, dated notes, "
+                "drag order and a needs-attention list. Use when Wei asks "
+                "for a new panel, tab, tracker, or list on the dashboard "
+                "('make me a GTM panel', 'I want a hiring tracker'). Then "
+                "add his items with panel_add."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string",
+                              "description": "The panel's name, in Wei's "
+                                             "words, e.g. 'GTM'."},
+                    "states": {"type": "array", "items": {"type": "string"},
+                               "description": "Optional starting states/"
+                                              "stages. States are also "
+                                              "learned from use."},
+                },
+                "required": ["title"],
             },
         ),
     ]
@@ -343,8 +406,11 @@ async def call_tool(name: str, arguments: dict | None) -> list[TextContent]:
     try:
         if name in ("replied_elsewhere", "still_waiting"):
             panel = "tasks"        # they act on the waiting list directly
-        if panel not in ("tasks", "prospects"):
-            text = 'panel must be "tasks" or "prospects".'
+        if name == "panel_create":
+            text = _panel_create(
+                str(args.get("title") or ""),
+                [s for s in (args.get("states") or [])
+                 if isinstance(s, str)])
         elif name == "panel_items":
             text = _panel_items(panel)
         elif name == "panel_add":

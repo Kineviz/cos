@@ -820,6 +820,67 @@ def health_cmd(quiet_: bool) -> None:
     sys.exit(1 if bad else 0)
 
 
+@main.group("improve", invoke_without_command=True)
+@click.pass_context
+def improve_grp(ctx: click.Context) -> None:
+    """The self-improvement loop: what is flagged, and what it did about it.
+
+    Bare `cos improve` shows the queue. Wei flags a bad answer by telling
+    Kiran; slow answers and benchmark regressions are collected on their own;
+    the nightly run attempts fixes on a branch and merges only what passes
+    every gate — or waits for approval when it should.
+    """
+    if ctx.invoked_subcommand is not None:
+        return
+    from .improve import queue
+
+    rows = queue(None)
+    if not rows:
+        console.print("Nothing flagged, nothing in progress.")
+        return
+    for it in rows[-20:]:
+        mark = {"open": "[yellow]open[/yellow]",
+                "proposed": "[cyan]needs your OK[/cyan]",
+                "applied": "[green]applied[/green]",
+                "dismissed": "[dim]dismissed[/dim]"}.get(it["status"], it["status"])
+        console.print(f"  {it['id']}  {mark:24} [{it['kind']}] "
+                      f"{it['question'][:70]}")
+        if it.get("complaint"):
+            console.print(f"      [dim]{it['complaint'][:100]}[/dim]")
+        if it["status"] == "proposed" and it.get("branch"):
+            console.print(f"      apply: [bold]cos improve apply "
+                          f"{it['branch']}[/bold]")
+
+
+@improve_grp.command("nightly")
+@click.option("--no-bench", is_flag=True,
+              help="Skip the benchmark run (collect and attempt only).")
+def improve_nightly(no_bench: bool) -> None:
+    """The scheduled entry point: collect, measure, attempt, report."""
+    from .improve import nightly
+
+    console.print(nightly(run_bench=not no_bench))
+
+
+@improve_grp.command("apply")
+@click.argument("branch")
+def improve_apply(branch: str) -> None:
+    """Merge a proposed fix after reviewing it."""
+    from .improve import apply_branch
+
+    console.print(apply_branch(branch))
+
+
+@improve_grp.command("dismiss")
+@click.argument("item_id")
+def improve_dismiss(item_id: str) -> None:
+    """Drop a queue item that should not be worked on."""
+    from .improve import set_status
+
+    ok = set_status(item_id, "dismissed", resolution="dismissed by Wei")
+    console.print("dismissed" if ok else f"no item with id {item_id!r}")
+
+
 @main.command("errors")
 @click.option("--limit", default=10, help="How many failures to show.")
 def errors_cmd(limit: int) -> None:

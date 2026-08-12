@@ -366,6 +366,27 @@ def _repatch_prospects() -> None:
     tmp.replace(SNAPSHOT)
 
 
+def custom_panels() -> list[dict]:
+    """Every user-created panel with its rows, shaped like the prospects
+    rows so the page renders them with the same machinery. No mail overlay:
+    days-quiet and whose-ball are facts about correspondence, and a custom
+    panel's items are whatever the user says they are."""
+    from . import paneldb
+
+    out = []
+    for p in paneldb.list_panels():
+        if p["id"] == paneldb.PROSPECTS:
+            continue
+        rows = [{"id": r["id"], "name": r["name"], "stage": r["state"],
+                 "next": r["note"], "notes": r["notes"],
+                 "focus": bool(r["extra"].get("focus")),
+                 "focus_pos": r["extra"].get("focus_pos", 0.0)}
+                for r in paneldb.list_items(p["id"])]
+        out.append({"id": p["id"], "title": p["title"],
+                    "states": paneldb.states(p["id"]), "rows": rows})
+    return out
+
+
 def _deals_from_db(cfg) -> list:
     """Deal objects for the mail-status computation, from the panel DB.
 
@@ -499,15 +520,26 @@ class Handler(BaseHTTPRequestHandler):
         self._json({"note": note, "items": [i.as_dict() for i in items]})
 
     def _panel(self, payload: dict) -> None:
-        """Edits to the prospects panel. The database is the master copy;
-        the markdown view is re-exported after every write, best-effort."""
+        """Edits to any editable panel. The database is the master copy;
+        the prospects markdown view is re-exported after every write,
+        best-effort. `panel` names the panel; absent means prospects, which
+        is what every caller sent before panels could be created on demand."""
         from . import paneldb
 
         action = payload.get("action", "")
         item_id = str(payload.get("id", ""))[:40]
+        panel = str(payload.get("panel") or paneldb.PROSPECTS)[:40]
         try:
-            if action == "add":
-                row = paneldb.add_item(paneldb.PROSPECTS,
+            if action == "create_panel":
+                made = paneldb.create_panel(
+                    payload.get("title", ""),
+                    [s for s in payload.get("states", []) if isinstance(s, str)])
+                note = f"created panel {made['title']}"
+            elif action == "remove_panel":
+                gone = paneldb.remove_panel(panel)
+                note = f"removed panel {gone}"
+            elif action == "add":
+                row = paneldb.add_item(panel,
                                        payload.get("name", ""),
                                        state=payload.get("state", ""),
                                        note=payload.get("note", ""))
@@ -539,21 +571,23 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"error": str(e)}, 400)
             return
 
-        try:
-            from .config import Config
-            paneldb.export_markdown(Config.load().vault_root)
-        except Exception as e:  # noqa: BLE001
-            # Best-effort, but never silent: a swallowed NameError here is
-            # exactly how the first export quietly did not happen.
-            print(f"[cos serve] panel export failed: {type(e).__name__}: {e}")
-        # The snapshot's prospects block is stale until the next refresh;
-        # rebuild just that part so the panel reflects the edit immediately.
-        try:
-            _repatch_prospects()
-        except Exception:  # noqa: BLE001
-            pass
+        if panel == paneldb.PROSPECTS:
+            try:
+                from .config import Config
+                paneldb.export_markdown(Config.load().vault_root)
+            except Exception as e:  # noqa: BLE001
+                # Best-effort, but never silent: a swallowed NameError here is
+                # exactly how the first export quietly did not happen.
+                print(f"[cos serve] panel export failed: {type(e).__name__}: {e}")
+            # The snapshot's prospects block is stale until the next refresh;
+            # rebuild just that part so the panel reflects the edit immediately.
+            try:
+                _repatch_prospects()
+            except Exception:  # noqa: BLE001
+                pass
         print(f"[cos serve] panel: {note}")
-        self._json({"note": note, "dashboard": read_snapshot()})
+        self._json({"note": note, "dashboard": read_snapshot(),
+                    "panels": custom_panels()})
 
     def _origin_ok(self, mutating: bool) -> bool:
         """Reject anything a hostile page could make the browser send."""
@@ -613,6 +647,8 @@ class Handler(BaseHTTPRequestHandler):
             })
         elif self.path == "/api/dashboard":
             self._json(read_snapshot())
+        elif self.path == "/api/panels":
+            self._json({"panels": custom_panels()})
         elif self.path == "/api/agenda":
             from . import agenda
 

@@ -197,6 +197,9 @@ body.resizing{cursor:col-resize;user-select:none}
   background:color-mix(in srgb,var(--accent) 12%,transparent)}
 .navb .n{margin-left:auto;font-size:11.5px;font-variant-numeric:tabular-nums;
   color:var(--muted)}
+/* Quieter than a real destination: it makes panels, it is not one. */
+.navadd{color:color-mix(in srgb,var(--muted) 65%,transparent);font-size:12.5px}
+.navadd:hover{color:var(--ink)}
 /* Panels are places; the chat is a conversation. The rule says so. */
 .navsep{height:1px;background:var(--line);margin:var(--s2) 10px}
 .railsec{padding:var(--s4) var(--s3) var(--s1);font:600 11px/1.15 var(--font);
@@ -445,6 +448,10 @@ summary.srch:hover{color:var(--ink)}
 .pdot{width:8px;height:8px;border-radius:50%;justify-self:center;
   background:var(--line)}
 .pdot.you{background:var(--warn)}
+/* The row is a 4-column grid, so the dot cell must exist even when a panel
+   has no whose-ball data — dropping the span slid the name into the 18px
+   dot column and "Pricing page" rendered as "Prici…". */
+.pdot.none{background:transparent}
 .r[data-ball="you"]{border-left-color:color-mix(in srgb,var(--warn) 70%,transparent)}
 .stg{font-size:11px;color:var(--muted);white-space:nowrap}
 .hotstar{color:var(--warn)}
@@ -609,6 +616,14 @@ const ic=(n)=>`<span class="i">${ICO[n]}</span>`;
 /* ── state ───────────────────────────────────────────────────────── */
 let S={},D={},A={},G=[],CHAT=[],MODE='list',POLL=null;
 let SES=[],CUR=null,FIND='';
+// User-created panels, straight from the database. Wei: "UI should not be
+// static. we should be able to on demand add a new dashboard tab."
+let PANELS=[];
+// Which panel the current view shows — 'prospects', a custom id, or null.
+const PID=()=>MODE==='pros'?'prospects':MODE.startsWith('p:')?MODE.slice(2):null;
+const PDATA=pid=>pid==='prospects'
+  ?{title:'Prospects',rows:D.prospects||[],states:D.prospect_states||[],mail:true}
+  :(PANELS.find(p=>p.id===pid)||{title:pid,rows:[],states:[]});
 const BUCKETS=[['today','Today'],['soon','Soon'],['backlog','Back list']];
 const KIND={owed:'waiting on you',quiet:'gone quiet',manual:'',todo:''};
 
@@ -660,10 +675,21 @@ function renderRail(){
        <span class="n">${counts.today+counts.soon+counts.backlog}</span></button>`+
     (pros.length?`<button class="navb" data-go="pros" ${MODE==='pros'?'aria-current="true"':''}>Prospects
        <span class="n">${yourBall||pros.length}</span></button>`:'')+
+    PANELS.map(p=>`<button class="navb" data-go="p:${p.id}" ${MODE==='p:'+p.id?'aria-current="true"':''}>${esc(p.title)}
+       <span class="n">${p.rows.length}</span></button>`).join('')+
+    `<button class="navb navadd" data-add-panel title="Add a panel">+ panel</button>`+
     (CUR?`<div class="navsep"></div><button class="navb" data-go="chat" ${MODE==='chat'?'aria-current="true"':''}
        >Current chat</button>`:'');
   $('nav').querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{
     show(b.dataset.go); if(b.dataset.go==='chat') toBottom()});
+  const addp=$('nav').querySelector('[data-add-panel]');
+  if(addp) addp.onclick=async()=>{
+    const t=prompt('Name the new panel — e.g. GTM, Hiring, Partnerships');
+    if(!t||!t.trim()) return;
+    if(await panelAct({action:'create_panel',title:t.trim()})){
+      const made=PANELS.find(p=>p.title.toLowerCase()===t.trim().toLowerCase().replace(/\s+/g,' '));
+      if(made) show('p:'+made.id);
+    }};
 
   renderSessions();
 
@@ -922,14 +948,14 @@ function renderList(){
 // same one-line rows, the same click-to-expand panel. One group per stage,
 // one line per deal — name, newest note, days quiet. The database is the
 // master copy; days quiet and the last email are computed and display-only.
-function prow(p,showStage){
+function prow(p,showStage,states){
   const notes=(p.notes&&p.notes.length)?p.notes:(p.next?[{ts:'',text:p.next}]:[]);
   const latest=notes[notes.length-1];
   const earlier=notes.slice(0,-1).reverse();
-  return `<div class="r" data-pid="${p.id}" data-ball="${p.ball}" tabindex="0"
+  return `<div class="r" data-pid="${p.id}" data-ball="${p.ball||''}" tabindex="0"
      ${latest?` title="${esc(latest.text)}"`:''}>
     <span class="grip">${ICO.grip}</span>
-    <span class="pdot${p.ball==='you'?' you':''}" title="${p.ball==='you'?'your move':p.ball==='them'?'their move':''}"></span>
+    <span class="pdot${p.ball==='you'?' you':p.ball===undefined?' none':''}" title="${p.ball==='you'?'your move':p.ball==='them'?'their move':''}"></span>
     <span class="txt"><span class="ttl">${p.focus?'<span class="hotstar" title="Needs attention">★</span> ':''}${esc(p.name)}</span>
       ${showStage&&p.stage?`<span class="stg">${esc(p.stage)}</span>`:''}
       ${latest?`<span class="dtl">${esc(latest.text)}</span>`:''}</span>
@@ -945,21 +971,26 @@ function prow(p,showStage){
         <button class="pfoc" data-on="${p.focus?'0':'1'}">${p.focus?'★ Remove from top':'☆ Needs attention now'}</button>
       </div>
       <div class="mv"><b>Stage</b>
-        ${(D.prospect_states||[]).map(s=>`<button data-s="${esc(s)}"${p.stage===s?' aria-current="true"':''}>${esc(s)}</button>`).join('')}
+        ${(states||[]).map(s=>`<button data-s="${esc(s)}"${p.stage===s?' aria-current="true"':''}>${esc(s)}</button>`).join('')}
         <button class="rm" data-a="arch">Archive</button>
       </div></div></div>`}
 
-function renderProspects(){
+// One renderer for every panel of this shape. Prospects was the prototype;
+// a panel created on demand ("add a GTM panel") gets the same machinery —
+// stage groups, dated notes, drag, the attention list — with no mail overlay.
+function renderPanel(pid){
+  pid=pid||PID()||'prospects';
   const sc=$('scroll');
   const keep={top:sc?sc.scrollTop:0,
     open:document.querySelector('.r.open')?.dataset.pid||null,
     note:document.querySelector('.r.open .note')?.value||''};
-  const pros=D.prospects||[];
-  const states=D.prospect_states||[];
+  const PD=PDATA(pid);
+  const pros=PD.rows;
+  const states=PD.states;
   const groups=[...states.filter(s=>pros.some(p=>p.stage===s&&!p.focus)),
                 ...(pros.some(p=>!states.includes(p.stage)&&!p.focus)?['']:[])];
   let h='';
-  if(D.stale) h+=`<div class="banner">These numbers are ${D.age_minutes} minutes old — the refresh may be stuck.</div>`;
+  if(PD.mail&&D.stale) h+=`<div class="banner">These numbers are ${D.age_minutes} minutes old — the refresh may be stuck.</div>`;
 
   // Needs attention now. A separate list, not a stage: urgency this week
   // says nothing about whether a deal is Qualified or Engaged, and folding
@@ -967,14 +998,14 @@ function renderProspects(){
   // row in, or use the star in its panel.
   const hot=pros.filter(p=>p.focus)
     .sort((a,b)=>(a.focus_pos||0)-(b.focus_pos||0));
-  const hkey='pros:focus';
+  const hkey=pid+':focus';
   const hsaved=localStorage.getItem('cos.g.'+hkey);
   const hopen=hsaved!=null?hsaved==='1':true;
   h+=`<div class="grp focusg" data-bucket="${hkey}" data-focus="1" data-open="${hopen?1:0}">
     <button class="ghead" aria-expanded="${hopen?'true':'false'}"><span class="i chev">${ICO.chev}</span><span>Needs attention now</span>
       <span class="cnt">${hot.length}</span></button>
-    <div class="rows">${hot.map(p=>prow(p,true)).join('')
-      ||'<div class="empty">Drag a prospect here, or open one and press the star.</div>'}</div>
+    <div class="rows">${hot.map(p=>prow(p,true,states)).join('')
+      ||'<div class="empty">Drag an item here, or open one and press the star.</div>'}</div>
   </div>`;
 
   h+=groups.map(g=>{
@@ -984,19 +1015,19 @@ function renderProspects(){
     const bits=[];
     if(yours) bits.push(yours+' your move');
     if(days.length) bits.push('quietest '+Math.max(...days)+'d');
-    const key='pros:'+(g||'none');
+    const key=pid+':'+(g||'none');
     const saved=localStorage.getItem('cos.g.'+key);
     const open=saved!=null?saved==='1':true;
     return `<div class="grp" data-bucket="${key}" data-state="${esc(g)}" data-open="${open?1:0}">
       <button class="ghead" aria-expanded="${open?'true':'false'}"><span class="i chev">${ICO.chev}</span><span>${esc(g||'No stage')}</span>
         <span class="cnt">${rows.length}</span>
         ${bits.length?`<span class="gsum">${bits.join(' · ')}</span>`:''}</button>
-      <div class="rows">${rows.map(p=>prow(p)).join('')||'<div class="empty">Nothing here</div>'}</div>
+      <div class="rows">${rows.map(p=>prow(p,false,states)).join('')||'<div class="empty">Nothing here</div>'}</div>
     </div>`}).join('');
   h+=`<div class="add"><span class="plus">+</span>
-    <input class="newpros" placeholder="Add a prospect…"></div>`;
+    <input class="newpros" placeholder="${pid==='prospects'?'Add a prospect…':'Add to '+esc(PD.title)+'…'}"></div>`;
   $('view').innerHTML=h;
-  wireProspects();
+  wirePanel(pid,pros,states);
   if(keep.open){
     const r=document.querySelector(`.r[data-pid="${CSS.escape(keep.open)}"]`);
     if(r){r.classList.add('open');
@@ -1006,16 +1037,19 @@ function renderProspects(){
 }
 
 async function panelAct(body){
+  if(!body.panel) body.panel=PID()||'prospects';
   const r=await fetch('/api/panel',{method:'POST',
     headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const j=await r.json();
   if(j.error){alert(j.error);return false}
   if(j.dashboard) D=j.dashboard;
-  renderProspects(); renderRail();
+  if(j.panels) PANELS=j.panels;
+  if(PID()) renderPanel(PID());
+  renderRail();
   return true;
 }
 
-function wireProspects(){
+function wirePanel(pid,pros,states){
   let dragged=null;
   document.querySelectorAll('.r[data-pid]').forEach(n=>{
     const id=n.dataset.pid;
@@ -1243,6 +1277,15 @@ function screenText(){
         +(n?` · note (${n.ts}): ${n.text}`:p.next?` · note: ${p.next}`:'');}).join('\n');
     return rows?'Prospects panel — the tracked deals:\n'+rows:'';
   }
+  if(MODE.startsWith('p:')){
+    const PD=PDATA(MODE.slice(2));
+    const rows=PD.rows.map(p=>{
+      const n=(p.notes&&p.notes.length)?p.notes[p.notes.length-1]:null;
+      return `- ${p.focus?'[NEEDS ATTENTION] ':''}${p.name} · ${p.stage||'no state'}`
+        +(n?` · note (${n.ts}): ${n.text}`:'');}).join('\n');
+    return `${PD.title} panel (id: ${MODE.slice(2)}) — the items:\n`
+      +(rows||'(empty)');
+  }
   if(MODE==='list'){
     const live=G.filter(i=>!i.done);
     const mine=live.filter(i=>i.kind!=='owed'&&i.kind!=='quiet')
@@ -1290,10 +1333,12 @@ function schedule(){if(!POLL)POLL=setTimeout(poll,700)}
 // numbers under a footer timestamp that reads as live.
 async function refreshData(){
   try{
-    const [b,c]=await Promise.all([fetch('/api/dashboard'),fetch('/api/agenda')]);
+    const [b,c,p]=await Promise.all([fetch('/api/dashboard'),fetch('/api/agenda'),
+      fetch('/api/panels')]);
     D=await b.json(); G=(await c.json()).items||[];
+    try{PANELS=(await p.json()).panels||[]}catch(e){}
     if(MODE==='list') renderList();
-    if(MODE==='pros') renderProspects();
+    if(PID()) renderPanel(PID());
     renderRail();
   }catch(e){}
 }
@@ -1328,7 +1373,7 @@ async function poll(){
 /* ── view switch ─────────────────────────────────────────────────── */
 function show(m){
   MODE=m;
-  m==='list'?renderList():m==='pros'?renderProspects():renderChat();
+  m==='list'?renderList():PID()?renderPanel(PID()):renderChat();
   renderRail();
   $('chint').textContent = m!=='chat' ? ''
     : (matchMedia('(hover:none)').matches
@@ -1452,9 +1497,11 @@ async function boot(){
   // you repeat every time the page loads.
   if(localStorage.getItem('cos.rail')==='0') $('app').classList.add('shut');
   $('send').innerHTML=ICO.up; $('i-plus').innerHTML=ICO.plus;
-  const [a,b,c]=await Promise.all([fetch('/api/settings'),fetch('/api/dashboard'),fetch('/api/agenda')]);
+  const [a,b,c,p]=await Promise.all([fetch('/api/settings'),fetch('/api/dashboard'),
+    fetch('/api/agenda'),fetch('/api/panels')]);
   const sj=await a.json(); S=sj.settings; A={...(sj.actual||{}),warnings:sj.warnings||[]};
   D=await b.json(); G=(await c.json()).items||[];
+  try{PANELS=(await p.json()).panels||[]}catch(e){}
   try{SES=(await (await fetch('/api/chats')).json()).sessions||[]}catch(e){}
   document.title=(S['agent.name']||'cos');
   // Restore the conversation that was open. Losing it on a reload, or on a
