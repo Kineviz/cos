@@ -862,6 +862,17 @@ def improve_nightly(no_bench: bool) -> None:
     console.print(nightly(run_bench=not no_bench))
 
 
+@improve_grp.command("coverage")
+@click.option("--days", default=7, help="How far back to read.")
+def improve_coverage(days: int) -> None:
+    """What actually got asked, classified by kind, against what the exam
+    grades. Files a queue item for any kind people ask weekly that the
+    benchmark cannot see. Runs by itself once a week in the nightly pass."""
+    from .improve import coverage_pass
+
+    console.print(coverage_pass(days))
+
+
 @improve_grp.command("apply")
 @click.argument("branch")
 def improve_apply(branch: str) -> None:

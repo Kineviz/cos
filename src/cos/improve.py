@@ -293,6 +293,148 @@ def bench_regressions(min_history: int = 3) -> list[dict]:
 
 
 # --------------------------------------------------------------------------
+# Coverage: what actually gets asked, vs what the exam grades
+
+CHATS_FILE = STATE_DIR / "chats.json"
+COVERAGE_STAMP = STATE_DIR / "coverage-stamp"
+
+# How a person sounds when the answer missed. Deliberately narrow — a false
+# "pushback" files noise into the queue every week.
+_PUSHBACK = re.compile(
+    r"(?:that'?s (?:wrong|not)|not what i (?:asked|meant|wanted)|"
+    r"you missed|didn'?t answer|try again|still wrong|no[,.] i (?:asked|meant))",
+    re.I)
+
+
+def _asked_epoch(turn: dict) -> float | None:
+    raw = turn.get("asked_at")
+    if isinstance(raw, (int, float)):
+        return float(raw)
+    if isinstance(raw, str) and raw:
+        try:
+            return datetime.fromisoformat(raw).timestamp()
+        except ValueError:
+            return None
+    return None
+
+
+def real_questions(days: int = 7) -> list[dict]:
+    """Everything actually asked this week, from both surfaces.
+
+    Wei: "we can look at the conversation to check our coverage and see what
+    we need to improve." The benchmark grades the questions we THOUGHT of;
+    this reads the ones that happened.
+    """
+    cutoff = time.time() - days * 86400
+    out: list[dict] = []
+    try:
+        data = json.loads(CHATS_FILE.read_text(encoding="utf-8"))
+        for s in data.get("sessions", []):
+            for t in s.get("turns", []):
+                at = _asked_epoch(t)
+                q = (t.get("question") or "").strip()
+                if q and (at is None or at >= cutoff):
+                    out.append({"text": q, "source": "dashboard",
+                                "elapsed": t.get("elapsed"),
+                                "pushback": False})
+    except (OSError, json.JSONDecodeError):
+        pass
+
+    if HERMES_DB.exists():
+        try:
+            db = sqlite3.connect(f"file:{HERMES_DB}?mode=ro", uri=True)
+            rows = db.execute(
+                "SELECT content, timestamp FROM messages WHERE role='user' "
+                "AND content IS NOT NULL AND content != '' AND timestamp > ? "
+                "ORDER BY timestamp", (cutoff,)).fetchall()
+            db.close()
+            prev = None
+            for content, _ts in rows:
+                q = _question_of(content)
+                if not q:
+                    continue
+                if prev is not None and _PUSHBACK.search(q):
+                    prev["pushback"] = True
+                prev = {"text": q, "source": "telegram", "elapsed": None,
+                        "pushback": False}
+                out.append(prev)
+        except sqlite3.Error:
+            pass
+    return out
+
+
+# A question kind maps to the exam category that grades it. Temporal is
+# orthogonal (any kind can name a date), so it does not appear.
+_KIND_TO_CATEGORY = {"lookup": "recall", "absence": "honesty",
+                     "sweep": "sweep", "timeline": "timeline",
+                     "multihop": "multihop", "compare": "compare",
+                     "multipart": "multipart"}
+
+
+def coverage(days: int = 7) -> dict:
+    """The week's real questions, classified, against the exam's coverage."""
+    from . import bench, intent, qtype
+
+    asked = real_questions(days)
+    kinds: dict[str, int] = {}
+    actions = pushback = 0
+    for q in asked:
+        if q["pushback"]:
+            pushback += 1
+        if intent.classify(q["text"]).is_action:
+            actions += 1
+            continue
+        kind = qtype.classify(q["text"]).kind
+        kinds[kind] = kinds.get(kind, 0) + 1
+
+    graded = {q.category for q in bench.QUESTIONS}
+    gaps = [k for k, n in kinds.items()
+            if n >= 3 and _KIND_TO_CATEGORY.get(k, k) not in graded]
+    return {"days": days, "asked": len(asked), "actions": actions,
+            "kinds": dict(sorted(kinds.items(), key=lambda kv: -kv[1])),
+            "pushback": pushback, "gaps": gaps}
+
+
+def coverage_pass(days: int = 7) -> str:
+    """Render the week, and FILE what it finds: a kind that people actually
+    ask three or more times a week deserves a graded exam question, and a
+    week with pushback deserves a look."""
+    cov = coverage(days)
+    for k in cov["gaps"]:
+        add("flagged",
+            f"The exam has no graded question of kind {k!r}, but it was "
+            f"asked {cov['kinds'][k]} time(s) this week.",
+            complaint="Coverage gap from the weekly conversation review. "
+                      "Add a graded benchmark question of this kind — see "
+                      "the k* questions in bench.py for the shape, and "
+                      "~/.cos/bench-questions.yaml for where real ones live.")
+    lines = [f"coverage, last {cov['days']} days: {cov['asked']} asked "
+             f"({cov['actions']} were actions)"]
+    if cov["kinds"]:
+        lines.append("  kinds: " + ", ".join(
+            f"{k} {n}" for k, n in cov["kinds"].items()))
+    if cov["pushback"]:
+        lines.append(f"  pushback on {cov['pushback']} answer(s) — "
+                     f"check they were flagged")
+    lines.append("  exam gaps filed: "
+                 + (", ".join(cov["gaps"]) if cov["gaps"] else "none"))
+    try:
+        COVERAGE_STAMP.write_text(datetime.now().strftime("%Y-%m-%d"))
+    except OSError:
+        pass
+    return "\n".join(lines)
+
+
+def _coverage_due(every_days: int = 7) -> bool:
+    try:
+        last = datetime.strptime(COVERAGE_STAMP.read_text().strip(),
+                                 "%Y-%m-%d")
+    except (OSError, ValueError):
+        return True
+    return (datetime.now() - last).days >= every_days
+
+
+# --------------------------------------------------------------------------
 # The attempt
 
 
@@ -523,6 +665,10 @@ def nightly(run_bench: bool = True) -> str:
     write_default_policy()
     policy = load_policy()
     slow = scan_slow(hours=26)
+    # Once a week, read what was ACTUALLY asked and file the gaps — the
+    # benchmark grades the questions we thought of; this reads the ones
+    # that happened.
+    weekly = coverage_pass() if _coverage_due() else ""
 
     if run_bench:
         result = bench.run(label="nightly")
@@ -538,6 +684,8 @@ def nightly(run_bench: bool = True) -> str:
     lines = [f"improve nightly {datetime.now():%Y-%m-%d %H:%M}", bench_line,
              f"new: {len(slow)} slow, {len(regressed)} regressed; "
              f"open queue: {len(open_items)}"]
+    if weekly:
+        lines.append(weekly)
 
     if open_items:
         result = attempt(open_items, policy)

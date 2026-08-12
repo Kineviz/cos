@@ -194,6 +194,15 @@ _BUILTIN: list[Question] = [
         notes="A judgement must show its criteria — graded on the presence "
               "of a reason, not on which deal wins.",
     ),
+    Question(
+        "k5", "multipart",
+        "When is the Northwind review due, and who is writing the summary?",
+        must=[["no ", "not", "nothing", "cannot", "don't", "unable"]],
+        notes="Two asks in one sentence; the graded skill is not dropping "
+              "the second. Against an empty corpus both halves are honest "
+              "unknowns. The first weekly coverage pass caught this kind "
+              "missing — asked 50 times that week, graded zero.",
+    ),
 ]
 
 QUESTIONS: list[Question] = _load_private() or _BUILTIN

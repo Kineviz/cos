@@ -174,3 +174,69 @@ class TestAdvisor:
         monkeypatch.setattr(improve, "_git",
                             lambda *a, **k: type("R", (), {"stdout": ""})())
         assert improve._advisor_verdict(tmp_path, "HEAD")["ship"] is False
+
+
+class TestCoverage:
+    """The weekly pass: what was actually asked, against what the exam
+    grades. Wei: "we can look at the conversation to check our coverage and
+    see what we need to improve"."""
+
+    def _chats(self, tmp_path, monkeypatch, questions):
+        f = tmp_path / "chats.json"
+        f.write_text(json.dumps({"sessions": [{"turns": [
+            {"question": q, "asked_at": time.time()} for q in questions]}]}))
+        monkeypatch.setattr(improve, "CHATS_FILE", f)
+        monkeypatch.setattr(improve, "COVERAGE_STAMP", tmp_path / "stamp")
+
+    def test_questions_are_classified_by_kind(self, tmp_path, monkeypatch):
+        self._chats(tmp_path, monkeypatch, [
+            "Who runs Northwind?",
+            "How many deals mention pricing?",
+            "Catch me up on the Falcon project",
+            "archive the Northwind row",
+        ])
+        cov = improve.coverage()
+        assert cov["kinds"]["lookup"] == 1
+        assert cov["kinds"]["sweep"] == 1
+        assert cov["kinds"]["timeline"] == 1
+        assert cov["actions"] == 1
+
+    def test_a_kind_asked_weekly_but_ungraded_files_a_gap(
+            self, tmp_path, monkeypatch):
+        from cos import bench
+        self._chats(tmp_path, monkeypatch,
+                    ["Who introduced me to Sam?"] * 3)
+        monkeypatch.setattr(bench, "QUESTIONS", [
+            q for q in bench.QUESTIONS if q.category != "multihop"])
+        improve.coverage_pass()
+        assert any("multihop" in i["question"] for i in improve.queue())
+
+    def test_graded_kinds_file_nothing(self, tmp_path, monkeypatch):
+        """A gap report that cries every week gets ignored like any other
+        noisy alarm."""
+        self._chats(tmp_path, monkeypatch,
+                    ["How many deals mention pricing?"] * 4)
+        improve.coverage_pass()          # sweep IS graded (k1)
+        assert improve.queue() == []
+
+    def test_the_pass_runs_weekly_not_nightly(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(improve, "COVERAGE_STAMP", tmp_path / "stamp")
+        assert improve._coverage_due() is True
+        (tmp_path / "stamp").write_text(
+            improve.datetime.now().strftime("%Y-%m-%d"))
+        assert improve._coverage_due() is False
+
+    def test_pushback_is_counted(self, tmp_path, monkeypatch):
+        self._chats(tmp_path, monkeypatch, [])
+        db_path = tmp_path / "state.db"
+        db = sqlite3.connect(db_path)
+        db.execute("CREATE TABLE messages (session_id TEXT, role TEXT, "
+                   "content TEXT, timestamp REAL)")
+        now = time.time()
+        db.executemany("INSERT INTO messages VALUES (?,?,?,?)", [
+            ("s", "user", "who is waiting on me?", now - 60),
+            ("s", "user", "that's wrong, I meant this week", now - 30),
+        ])
+        db.commit(); db.close()
+        monkeypatch.setattr(improve, "HERMES_DB", db_path)
+        assert improve.coverage()["pushback"] == 1
