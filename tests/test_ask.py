@@ -355,3 +355,74 @@ class TestPanelQuestions:
         started = ask.start("what about all this?", session="s2",
                             screen="row\n" * 5000)
         assert len(started.screen) <= 6000
+
+
+class TestInstructionsAreExecutedNotAnswered:
+    """"archive Insight2" and "add these prospects" came back as summaries of
+    the things Wei had asked to change. The pipeline had one route — retrieve,
+    synthesise, cite — and an instruction went down it like everything else."""
+
+    def test_an_instruction_is_marked_as_one(self, monkeypatch):
+        monkeypatch.setattr(ask.threading, "Thread", _no_thread)
+        job = ask.start("archive Insight2")
+        assert job.intent == "action"
+        assert ask.start("what's open with Constella?").intent == "question"
+
+    def test_the_prompt_tells_it_to_act(self):
+        job = ask.Job(id="j", question="archive Insight2", intent="action")
+        text = ask._prompt(job)
+        assert "INSTRUCTION" in text
+        assert "panel_add" in text
+
+    def test_a_question_is_left_alone(self):
+        text = ask._prompt(ask.Job(id="j", question="who is waiting"))
+        assert "INSTRUCTION" not in text
+
+    def test_the_retrieved_pages_stop_being_the_answer(self):
+        """Told to "answer from these pages", the model answers instead of
+        acting — so for an instruction the same pages are handed over as
+        background for finding the target, and nothing more."""
+        hits = [{"slug": "10_wiki/clients/insight2", "date": "", "context": "…"}]
+        assert "Answer from these" in ask._sources_block(hits)
+        assert "Answer from these" not in ask._sources_block(hits, action=True)
+
+    def test_a_deletion_asks_first(self):
+        job = ask.Job(id="j", question="delete the Northwind row",
+                      intent="action", destructive=True)
+        assert "ask before doing it" in ask._prompt(job)
+
+    def test_an_instruction_never_reads_the_cache(self, monkeypatch):
+        """A cached receipt confirms work that never ran."""
+        monkeypatch.setattr(ask.threading, "Thread", _no_thread)
+        ask._remember("archive Insight2", "Archived: Insight2.")
+        job = ask.start("archive Insight2")
+        assert job.status == "running"
+        assert job.cached_age is None
+
+    def test_an_instruction_never_writes_the_cache(self, monkeypatch):
+        monkeypatch.setattr(ask.subprocess, "run", lambda *a, **k: SimpleNamespace(
+            stdout="Archived: Insight2.", stderr="", returncode=0))
+        job = ask.Job(id="j", question="archive Insight2", intent="action")
+        ask._synthesise(job)
+        assert job.answer == "Archived: Insight2."
+        assert ask.cached_answer("archive Insight2") is None
+
+    def test_a_question_still_caches(self, monkeypatch):
+        monkeypatch.setattr(ask.subprocess, "run", lambda *a, **k: SimpleNamespace(
+            stdout="Bob and Max.", stderr="", returncode=0))
+        ask._synthesise(ask.Job(id="j", question="who is waiting"))
+        assert ask.cached_answer("who is waiting")["answer"] == "Bob and Max."
+
+    def test_the_instant_path_cannot_swallow_an_instruction(self, monkeypatch):
+        """The snapshot can say what the to-do list holds; it cannot add to
+        it. An instruction always reaches the assistant."""
+        monkeypatch.setattr(ask.instant, "answer", lambda *a, **k: "canned")
+        monkeypatch.setattr(ask.threading, "Thread", _no_thread)
+        assert ask.start("what is on my to-do list").answer == "canned"
+        assert ask.start("add breakfast to my to-do list").status == "running"
+
+
+def _no_thread(**kw):
+    """A job that is never actually run — these tests are about the routing
+    decision, which is made before the thread starts."""
+    return SimpleNamespace(start=lambda: None, daemon=True)
