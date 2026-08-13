@@ -94,14 +94,40 @@ class GmailApiSource:
             window += f" before:{until:%Y/%m/%d}"
         query = f"{window} {_CATEGORY_EXCLUSIONS}".strip()
 
+        from googleapiclient.errors import HttpError
+
+        def _exec(request, *, retry_failed_precondition=True, tries=6):
+            """Run a Gmail request, retrying transient failures with backoff.
+
+            Gmail intermittently returns 400 "failedPrecondition" (alongside the
+            usual 429/5xx) on both messages.list and messages.get — a backend
+            hiccup, not a bad request, and Google's guidance is to retry. A
+            12-month export died mid-pagination on one such 400, losing the
+            whole run; a page dropped here is 500 messages, so retry rather
+            than skip. Exponential backoff, then surface the error.
+            """
+            import time
+
+            for attempt in range(tries):
+                try:
+                    return request.execute()
+                except HttpError as e:
+                    status = getattr(e.resp, "status", None)
+                    fp = status == 400 and b"failedPrecondition" in (e.content or b"")
+                    transient = status in (429, 500, 502, 503, 504) or (
+                        fp and retry_failed_precondition
+                    )
+                    if not transient or attempt == tries - 1:
+                        raise
+                    time.sleep(min(2 ** attempt, 30))
+
         ids: list[str] = []
         page_token = None
         while True:
-            resp = (
-                svc.users()
-                .messages()
-                .list(userId="me", q=query, maxResults=500, pageToken=page_token)
-                .execute()
+            resp = _exec(
+                svc.users().messages().list(
+                    userId="me", q=query, maxResults=500, pageToken=page_token
+                )
             )
             ids.extend(m["id"] for m in resp.get("messages", []))
             page_token = resp.get("nextPageToken")
@@ -109,11 +135,26 @@ class GmailApiSource:
                 break
 
         threads: dict[str, Thread] = {}
+        skipped_no_raw = 0
         for i in range(0, len(ids), _BATCH):
             for mid in ids[i : i + _BATCH]:
-                msg = svc.users().messages().get(
-                    userId="me", id=mid, format="raw"
-                ).execute()
+                try:
+                    # A message with no RFC822 form (Chat/Hangouts, some
+                    # calendar items) permanently 400s on format=raw — don't
+                    # retry that, skip it below. Transient 429/5xx still retry.
+                    msg = _exec(
+                        svc.users().messages().get(
+                            userId="me", id=mid, format="raw"
+                        ),
+                        retry_failed_precondition=False,
+                    )
+                except HttpError as e:
+                    # Skip the handful of no-raw messages; a single one used to
+                    # abort the whole export. Re-raise anything else.
+                    if e.resp.status == 400:
+                        skipped_no_raw += 1
+                        continue
+                    raise
 
                 raw = base64.urlsafe_b64decode(msg["raw"].encode())
                 self._raw_cache[mid] = raw
@@ -140,6 +181,14 @@ class GmailApiSource:
                 m.recipients = [a for a in parsed["recipients"] if a not in me]
                 tid = msg.get("threadId") or mid
                 threads.setdefault(tid, Thread(thread_id=tid)).messages.append(m)
+
+        if skipped_no_raw:
+            import sys
+            print(
+                f"skipped {skipped_no_raw} message(s) with no raw form "
+                "(Chat/Hangouts or calendar entries)",
+                file=sys.stderr,
+            )
 
         for t in threads.values():
             t.messages.sort(key=lambda m: m.timestamp)
