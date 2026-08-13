@@ -168,6 +168,18 @@ class TestTheTwoThingsThatBrokeIt:
         assert ask.search_terms("What did I do last week?") == "last week"
         assert "BigBank" in ask.search_terms("How was my talk at BigBank?")
 
+    def test_catch_me_up_is_not_searched_for_literally(self):
+        """A request to be told, not a subject. Harmless at six pages and not
+        at sixteen: "Catch me up on HKJC" filled eight of the timeline's
+        slots with catch-up emails about other people, and the answer lost
+        half its facts. The timeline routing still reads the phrase."""
+        terms = ask.search_terms("Catch me up on HKJC — what has happened "
+                                 "since June?")
+        assert "atch" not in terms
+        assert "HKJC" in terms and "June" in terms
+        # A real subject that merely contains the word is untouched.
+        assert "Catchpole" in ask.search_terms("What did Catchpole send?")
+
     def test_search_runs_the_reduced_terms_and_the_whole_question(self, monkeypatch):
         """Neither query is right alone: stripping sharpened sources 71%→86%
         but erased the phrase that makes a time question a time question."""
@@ -181,7 +193,7 @@ class TestTheTwoThingsThatBrokeIt:
         def fake_run(argv, **kw):
             q = json.loads(argv[-1])["query"]
             queries.append(q)
-            return SimpleNamespace(stdout=json.dumps(pages.get(q, [])))
+            return SimpleNamespace(stdout=json.dumps(pages.get(q, [])).encode())
 
         monkeypatch.setattr(ask, "_gbrain", lambda: "/fake/gbrain")
         monkeypatch.setattr(ask.subprocess, "run", fake_run)
@@ -203,7 +215,8 @@ class TestTheTwoThingsThatBrokeIt:
 
         monkeypatch.setattr(ask, "_gbrain", lambda: "/fake/gbrain")
         monkeypatch.setattr(ask.subprocess, "run",
-                            lambda *a, **k: SimpleNamespace(stdout=json.dumps([old])))
+                            lambda *a, **k: SimpleNamespace(
+                                stdout=json.dumps([old]).encode()))
         monkeypatch.setattr(ask.dateindex, "read_head", lambda *a, **k: "notes")
         win = ask.when.parse("What did I do last week?", ask._today())
         monkeypatch.setattr(ask.dateindex, "pages_between", lambda *a, **k: [
@@ -219,7 +232,8 @@ class TestTheTwoThingsThatBrokeIt:
         monkeypatch.setattr(ask, "_gbrain", lambda: "/fake/gbrain")
         monkeypatch.setattr(ask.subprocess, "run",
                             lambda *a, **k: SimpleNamespace(stdout=json.dumps(
-                                [{"slug": "email/2025-09-03-falcon", "score": 0.8}])))
+                                [{"slug": "email/2025-09-03-falcon",
+                                  "score": 0.8}]).encode()))
         called = []
         monkeypatch.setattr(ask.dateindex, "pages_between",
                             lambda *a, **k: called.append(1) or [])
@@ -243,7 +257,7 @@ class TestTheTwoThingsThatBrokeIt:
         monkeypatch.setattr(ask.subprocess, "run",
                             lambda *a, **k: SimpleNamespace(stdout=json.dumps(
                                 [{"slug": "email/2024-01-09-falcon-kickoff",
-                                  "score": 0.9}])))
+                                  "score": 0.9}]).encode()))
         monkeypatch.setattr(ask.dateindex, "read_head", lambda *a, **k: "notes")
         newest = "email/2026-06-01-falcon-track-and-trace"
         monkeypatch.setattr(ask.dateindex, "newest_matching",
@@ -251,6 +265,60 @@ class TestTheTwoThingsThatBrokeIt:
                                               "date": "2026-06-01"}])
         hits = ask.search("What did we discuss on Falcon lately?")
         assert newest in [h["slug"] for h in hits]
+
+    def test_a_reply_cut_at_64k_keeps_the_rows_that_arrived(self, monkeypatch):
+        """The regression that put the median at 28.6s and timed out three
+        questions. `gbrain call search` truncates stdout at 65,536 bytes.
+        qtype's wide kinds asked for limit*5 = 70 or 80 rows, the array came
+        back severed mid-object, `json.loads` raised, and the except returned
+        [] — so "is there anything I promised and have not delivered?" reached
+        the model with an EMPTY sources block and a playbook telling it to
+        search. It searched for five minutes. Measured: four of six real
+        questions truncate at limit=40, and 29–38 of their rows are whole.
+        """
+        whole = json.dumps([{"slug": f"email/p{n}", "score": 0.9}
+                            for n in range(40)])
+        cut = whole[:len(whole) // 2].encode()      # severed mid-object
+        monkeypatch.setattr(ask.subprocess, "run",
+                            lambda *a, **k: SimpleNamespace(stdout=cut))
+        rows = ask._search_once("/fake/gbrain", "promised not delivered", 40)
+        assert 10 < len(rows) < 40, "the whole rows must survive the cut"
+        assert rows[0]["slug"] == "email/p0"
+
+    def test_a_cut_through_a_curly_quote_does_not_kill_the_question(
+            self, monkeypatch):
+        """The same truncation lands wherever it lands, and when that is the
+        middle of a “ the decode raised UnicodeDecodeError from inside
+        subprocess.run — a ValueError, caught by nothing on this path, so it
+        took the whole question down rather than one leg. This is the "never
+        returned at all" symptom."""
+        payload = json.dumps([{"slug": "email/p0", "score": 0.9},
+                              {"slug": "email/p1", "note": "“quoted”"}],
+                             ensure_ascii=False)
+        raw = payload.encode()
+        cut = raw[:raw.index("“".encode()) + 1]     # half of a 3-byte char
+        monkeypatch.setattr(ask.subprocess, "run",
+                            lambda *a, **k: SimpleNamespace(stdout=cut))
+        rows = ask._search_once("/fake/gbrain", "anything", 40)
+        assert [r["slug"] for r in rows] == ["email/p0"]
+
+    def test_the_deep_fetch_stays_under_the_truncation_cliff(self, monkeypatch):
+        """Rows past DEEP_MAX are computed, serialised and then cut off — paid
+        for and never delivered. limit*5 for a sixteen-page timeline asked for
+        eighty."""
+        asked = []
+        monkeypatch.setattr(ask, "_gbrain", lambda: "/fake/gbrain")
+        monkeypatch.setattr(ask.subprocess, "run",
+                            lambda argv, **k: asked.append(
+                                json.loads(argv[-1])["limit"])
+                            or SimpleNamespace(stdout=b"[]"))
+        ask.search("Catch me up on HKJC — what has happened since June?",
+                   limit=16)
+        assert asked and max(asked) <= ask.DEEP_MAX
+        # The tuned lookup path is untouched: still thirty.
+        asked.clear()
+        ask.search("Who runs Northwind?", limit=6)
+        assert max(asked) == 30
 
     def test_the_recency_prior_stays_gentle_without_a_soft_window(self,
                                                                  monkeypatch):
@@ -279,7 +347,7 @@ class TestTheTwoThingsThatBrokeIt:
 
         def fake_run(argv, **kw):
             calls.append(json.loads(argv[-1])["query"])
-            return SimpleNamespace(stdout="[]")
+            return SimpleNamespace(stdout=b"[]")
 
         monkeypatch.setattr(ask, "_gbrain", lambda: "/fake/gbrain")
         monkeypatch.setattr(ask.subprocess, "run", fake_run)
@@ -292,7 +360,7 @@ class TestTheTwoThingsThatBrokeIt:
         def fake_run(argv, **kw):
             q = json.loads(argv[-1])["query"]
             return SimpleNamespace(stdout=json.dumps(
-                [{"slug": f"{q[:4]}-{n}"} for n in range(6)]))
+                [{"slug": f"{q[:4]}-{n}"} for n in range(6)]).encode())
 
         monkeypatch.setattr(ask, "_gbrain", lambda: "/fake/gbrain")
         monkeypatch.setattr(ask.subprocess, "run", fake_run)
@@ -385,6 +453,18 @@ class TestInstructionsAreExecutedNotAnswered:
         hits = [{"slug": "10_wiki/clients/insight2", "date": "", "context": "…"}]
         assert "Answer from these" in ask._sources_block(hits)
         assert "Answer from these" not in ask._sources_block(hits, action=True)
+
+    def test_every_retrieved_page_reaches_the_prompt(self):
+        """qtype asks for sixteen pages for a timeline and this handed over
+        six, so the wide kinds paid for the retrieval and got the narrow
+        prompt. Worse for a timeline, whose hits are sorted oldest-first: the
+        six were the six OLDEST, so "what has happened since June" was
+        answered from pages that stopped before June."""
+        hits = [{"slug": f"email/2026-0{n}-01-hkjc", "date": f"2026-0{n}-01",
+                 "context": f"beat {n}"} for n in range(1, 9)]
+        block = ask._sources_block(hits)
+        assert all(h["slug"] in block for h in hits)
+        assert "beat 8" in block
 
     def test_a_deletion_asks_first(self):
         job = ask.Job(id="j", question="delete the Northwind row",

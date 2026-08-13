@@ -148,11 +148,13 @@ PLAYBOOK = {
         "traverse_graph) with what you learned. Do not guess the second "
         "hop from wording."),
     "absence": (
-        "This asks whether something ever happened. Search more than once, "
-        "with different words, before concluding. If you find nothing, say "
-        "'no record' and name exactly where you looked — never soften into "
-        "a guess, and never invent a plausible answer. Finding nothing, "
-        "stated honestly, is a correct answer."),
+        "This asks whether something ever happened. The pages below are "
+        "already a wide search; if they do not settle it, search at most "
+        "twice more with different words, then stop and answer. If you find "
+        "nothing, say 'no record' and name exactly where you looked — never "
+        "soften into a guess, and never invent a plausible answer. Finding "
+        "nothing, stated honestly, is a correct answer, and it is not worth "
+        "five minutes of looking."),
     "compare": (
         "This asks for a judgement across several things. First gather the "
         "facts for EACH candidate — one search per candidate if the "

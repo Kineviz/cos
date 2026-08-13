@@ -246,10 +246,15 @@ def grade(q: Question, answer: str, hits: list[dict]) -> dict:
 
 def run_one(q: Question, timeout: int = 300) -> dict:
     """Ask one question through the same path the dashboard uses."""
-    from . import ask
+    from . import ask, qtype
 
+    # The same width the job will use. Called with the default 6, this
+    # measured a search the job never ran: every report said "kept: 6" no
+    # matter what the routing asked for, which is exactly the number that
+    # would have shown the wide kinds retrieving nothing. The bug hid in the
+    # gap between the two searches for a day.
     t0 = time.time()
-    hits, clock = ask.search_profiled(q.text)
+    hits, clock = ask.search_profiled(q.text, limit=qtype.classify(q.text).width)
     t_search = time.time() - t0
 
     job = ask.start(q.text, fresh=True)
@@ -261,8 +266,12 @@ def run_one(q: Question, timeout: int = 300) -> dict:
     # Where the time went. "It seems slow" is not something you can improve
     # against, and the whole-question number hides which half is the problem:
     # retrieval is under two seconds of a run that can take five minutes.
+    #
+    # The job's own retrieval clock when it has one — that is the search that
+    # actually fed the answer. The one above is only a stand-in for questions
+    # answered from cache or killed before they got that far.
     profile = dict(job.profile or {})
-    profile["retrieval"] = {**clock}
+    profile["retrieval"] = dict(profile.pop("search", None) or clock)
     agent = profile.get("agent")
     if isinstance(agent, (int, float)):
         # Everything the pipeline does that is neither retrieval nor the agent:

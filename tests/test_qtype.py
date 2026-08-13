@@ -66,6 +66,17 @@ class TestRouting:
         assert qtype.QType("sweep").width > qtype.QType("lookup").width
         assert qtype.QType("timeline").width > qtype.QType("lookup").width
 
+    def test_the_absence_playbook_bounds_the_searching(self):
+        """It said "search more than once, with different words" and put no
+        ceiling on it — the only playbook that mandated searching without one.
+        With an empty sources block behind it (the truncation bug) the honesty
+        question ran the full 300s in two consecutive runs. Honesty has to be
+        cheap or it does not get asked."""
+        book = qtype.PLAYBOOK["absence"]
+        assert "at most twice more" in book and "then stop" in book
+        # And it still must not be allowed to guess instead.
+        assert "no record" in book
+
     def test_every_specialised_kind_has_marching_orders(self):
         for k in qtype.WIDTH:
             if k != "lookup":

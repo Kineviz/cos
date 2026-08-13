@@ -745,9 +745,6 @@ def export_brain(since: str, out: Path, limit: int | None, dry_run: bool) -> Non
         )
 
 
-if __name__ == "__main__":
-    main()
-
 @main.command("capture")
 @click.option("--dry-run", is_flag=True, help="Show what would be kept, write nothing.")
 @click.option("--session", default=None, help="Limit to one session id.")
@@ -1219,3 +1216,13 @@ def bench_report_cmd() -> None:
     from . import bench
 
     console.print(bench.compare())
+
+
+# Last line of the file, and it has to stay there. This guard sat two thirds
+# of the way up, just after `export-brain` — so `python -m cos.cli bench` ran
+# main() at that point, with nine of the twenty-eight commands registered, and
+# answered "No such command 'bench'". Nineteen commands were unreachable that
+# way: bench, serve, health, digest, alert, capture, review, the lot. The
+# `cos` entry point was never affected, which is why it went unnoticed.
+if __name__ == "__main__":
+    main()
