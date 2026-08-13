@@ -1,71 +1,122 @@
-# The dashboard on a phone
+# What I changed, and why
 
-**What changed:** the Tasks panel and the deal panels now work at phone width.
-Nothing moved on a laptop — every change is inside the narrow-screen rules.
+## The short version
 
-## What was wrong, and what it does now
+Yesterday's change — "not every question deserves the same six pages" — was
+correct in intent and broken in practice. It asked the brain for more pages,
+and the brain silently returned **none**.
 
-**Typing a note zoomed the whole page.** On an iPhone, tapping any text box
-smaller than 16px makes Safari zoom in and never zoom back out, so adding a
-note meant pinching the page back to size afterwards. The ask box and the
-settings screen were already exempt; the note field, the add-a-task line, the
-chat search and the rename box were not. They are now.
+So the questions it was meant to help arrived at Kiran with **no sources at
+all**, plus an instruction to go and search. Kiran searched for five minutes
+and got killed by the clock. That is the entire slowdown.
 
-**The Move buttons were too small to hit.** Today / Soon / Back list — and
-Stage on a deal panel — were 21 pixels tall with 5 pixels between them. On a
-phone these are the *only* way to move a row: dragging needs the little grip
-handle, which is hidden on a phone, and a finger cannot start a drag anyway.
-They are now 36 pixels tall with the label on its own line above them, so
-Delete and Archive are nowhere near the button you meant to press.
+## What was actually happening
 
-**The tick box was hard to tap.** It still looks the same size; the invisible
-target around it is now 44 pixels, which is the size Apple says a thumb hits
-reliably.
+The search tool cuts its own reply off at exactly 65,536 bytes. Nobody knew.
 
-**Opening a row wasted a third of the screen.** The expanded panel started
-under the title instead of at the left edge, so a note field and six buttons
-shared 320 of your 390 pixels. It now uses the full width.
+Asking for six pages fits under that. Asking for ten, fourteen or sixteen —
+which is what the new routing did for counts, timelines and "did we ever"
+questions — does not. The reply came back chopped in half, our code could not
+read it, and the error handling threw away the whole thing rather than
+keeping the thirty pages that had arrived intact.
 
-**Long email subjects pushed everything else off screen.** A subject plus a
-snippet could run four lines. It stops at two now, with "…" — you keep the
-density you chose this layout for.
+I reproduced it on the real mailbox. Every wide question returned **zero**
+pages:
 
-**The menu button sat on the first heading.** The button that opens the left
-panel overlapped the top of TODAY's collapse arrow by four pixels and stole
-the tap. Fixed.
+| Question | Pages before | Pages now |
+|---|---|---|
+| "Is there anything I promised someone and have not delivered?" | 0 | 14 |
+| "Catch me up on HKJC — what has happened since June?" | 0 | 16 |
+| "How much did we invoice Constella last quarter?" | 0 | 16 |
+| "When is the CDL talk due and who has the draft?" | 0 | 10 |
+| "Who is Dienert and what does he work on?" | 0 | 10 |
 
-**"Waiting on you −1".** When fewer than five people were waiting, that
-heading counted backwards and offered a "+ −3 more" button. It was a
-subtraction with no floor. Now it says 2 when two people are waiting.
+Ordinary six-page questions were never far from the same cliff: one of them
+came back 64,778 bytes long — 758 bytes short of being cut in half too. One
+longer email in the mailbox and it would have been.
 
-**"Drag an item here" was a lie on a phone.** The empty attention list told
-you to do something touch cannot do. On a phone it now says "Tap a row, then
-press ☆ Needs attention now."
+Worse, when the cut landed in the middle of a curly quote or an em dash, the
+whole question crashed rather than losing one page. That is the "never
+returned at all" symptom from the notes.
 
-Two smaller things: the rail's resize handle is hidden on a phone (it resized
-nothing there and swallowed swipes), and the "Add to Today…" prompt is now
-visible rather than drawn in the hairline colour — on a laptop it appears on
-hover, and a phone has no hover.
+## The five fixes
 
-## The evidence
+1. **Keep what arrived.** When the reply is cut off, read the pages that came
+   through whole instead of throwing all of them away. Nothing is silent any
+   more.
+2. **Don't ask for more than fits.** Capped at forty pages per request, which
+   is where the reply stops being deliverable. Ordinary questions still ask
+   for thirty, exactly as before — that path is untouched.
+3. **Hand over every page we retrieved.** A separate bug: even when retrieval
+   worked, only the first six pages were ever put in front of Kiran. For a
+   timeline that was the six *oldest*, because timeline pages get sorted into
+   date order first — so "what has happened since June" was answered from
+   pages that stopped before June.
+4. **Cap the searching on honesty questions.** "Did we ever…" told Kiran to
+   search repeatedly with no ceiling. Now: the pages provided are already a
+   wide search, try at most twice more, then answer. Finding nothing is still
+   a correct answer, and it should not cost five minutes.
+5. **Stop searching for "catch me up".** It is a request to be told, not a
+   subject. See the ✗ in the evidence table below — this one only surfaced
+   because of fix 3.
 
-I rendered the real dashboard in a browser at 390 pixels wide — an iPhone's
-width — against made-up data (Northwind, Acme, Morgan, Pat), and checked the
-task list, an opened row, an opened deal, and the waiting-on-you group. The
-screenshots are what the fixes above are based on; the "−1" heading was found
-that way, not by reading code.
+## Two things I found on the way
 
-There are also six new automated tests that read the shipped stylesheet and
-fail if any of these slips back: no typeable field under 16px, no thumb
-control under 36px, the tick target at 44px, the panel at full width, the
-detail capped at two lines, and the waiting count clamped. All six fail on the
-old file and pass on the new one. The whole suite — 497 tests — passes.
+**The benchmark was measuring the wrong search.** It ran its own separate
+search at the old fixed width, and reported *that* profile — so every report
+said "6 pages kept" no matter what the question actually retrieved. That is
+precisely the number that would have shown this bug on day one. It now
+reports the search the answer was really built from.
+
+**`python -m cos.cli bench` did not work at all.** A stray line two thirds of
+the way down the file made the program start early, with only nine of its
+twenty-eight commands loaded. Nineteen commands — bench, serve, health,
+digest, alert and more — answered "no such command" when run that way. Moved
+to the bottom of the file where it belongs. (Typing `cos bench` was never
+affected, which is why it went unnoticed.)
+
+## Evidence
+
+The nine affected questions, before and after. "Timeout" means it ran the
+full five minutes and was killed with no answer.
+
+| | before (Aug 12) | before (last night) | after, run 1 | after, run 2 | after, run 3 |
+|---|---|---|---|---|---|
+| "anything I promised and haven't delivered?" | **timeout** | **timeout** | 72s ✓ | 95s ✓ | 70s ✓ |
+| "how much did we invoice Constella?" | **timeout** | 201s ✓ | 28s ✓ | 46s ✓ | 155s ✓ |
+| "catch me up on HKJC since June" | 67s ✓ | **timeout** | 26s ✗ | 30s ✓ | 29s ✓ |
+| "which prospects are on my panel?" | 37s ✓ | 81s ✓ | 19s ✓ | 18s ✓ | 52s ✓ |
+| "when is the CDL talk due, who has the draft?" | 36s ✓ | 73s ✓ | 61s ✓ | 29s ✓ | 16s ✓ |
+| "who is Dienert and what does he work on?" | 36s ✓ | 52s ✓ | 28s ✓ | — | 30s ✓ |
+| "what did I agree with Acme about Zephyr?" | 29s ✓ | 132s ✓ | 40s ✓ | — | 40s ✓ |
+| "most overdue thing to deal with today?" | 25s ✓ | 22s ✓ | 13s ✓ | — | 11s ✓ |
+| "who is the real decision maker at Constella?" | 25s ✓ | 24s ✓ | 26s ✓ | — | 44s ✓ |
+
+**Three timeouts in the two runs before. None in twenty-three question-runs
+after.** Every question correct in the last two runs; no invented facts in
+any run.
+
+The one ✗ is the HKJC question in the first run after the fix, and it is why
+there are three runs. Handing over sixteen pages instead of six exposed a
+second, older problem: "catch me up" was being searched for *literally*, so
+eight of the sixteen slots went to unrelated "catch-up" emails about other
+people. Six pages had hidden it; sixteen could not. I stopped the phrase
+being searched for — the routing already recognises it — and the August HKJC
+calendar entry and the case-management proposal took those slots. Correct in
+both runs since, and roughly twice as fast as it ever was.
+
+523 tests pass. I added seven covering exactly what broke: a reply cut
+mid-page, a reply cut through a curly quote, the forty-page cap, every
+retrieved page reaching the prompt, the bounded honesty playbook, and "catch
+me up" not reaching the search.
 
 ## What I did not fix
 
-**"Auto-improving application" took 176 seconds to answer.** I left this
-alone. That question is a genuinely strategic one, and answering it is a full
-assistant run reading your mail and notes; there is no bug to point at, and I
-cannot reproduce the timing offline. Making it faster is a product decision —
-answer briefly first and fill in detail after, or route strategy questions to
-a shorter path — not something to change quietly inside a layout fix.
+**The 176-second answer to your note about building a self-improving
+application.** That question takes the ordinary six-page path, so none of the
+routing above touched it. The truncation fix may help it — it was one long
+email away from the same cliff — but I have no measurement proving that, and
+the honest answer is that a long strategic statement with no question in it
+is a question-shaped thing Kiran has no good playbook for. Deciding what
+Kiran *should* do with "here is my strategy, react to it" is a product call,
+not a bug fix, so I left it.

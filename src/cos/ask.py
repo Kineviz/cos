@@ -106,6 +106,15 @@ _STOP = {
     # for one run and cost "When is the CDL talk due?" its own source page —
     # the CDL talk is a thing, not an act of talking.
     "discuss", "discussed", "discussing", "mention", "mentioned",
+    # "Catch me up on HKJC" is a request TO BE told, not a subject. It only
+    # started to matter once every retrieved page reached the prompt: at six
+    # pages the noise was out-ranked, at sixteen it took eight of the slots
+    # with "catch-up" emails about Aditya, Jeroen and Repsol, and the answer
+    # lost half its facts. Stopping the phrase put the August HKJC calendar
+    # entry and the case-management proposal in their place. qtype's timeline
+    # rule already reads "catch me up", so the meaning is not lost — it is
+    # just no longer searched for literally.
+    "catch", "up",
 }
 _WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9'&/.-]*")
 
@@ -134,17 +143,72 @@ def search_terms(question: str) -> str:
     return out if len(out) >= 3 else (question or "").strip()
 
 
+def _salvage(out: str) -> list:
+    """The rows that arrived whole, out of a JSON array that was cut off.
+
+    `gbrain call search` cuts its stdout at exactly 65,536 bytes. Ask for
+    more rows than fit and the last object is severed mid-string, so
+    `json.loads` raises and the ENTIRE leg — every row, including the thirty
+    whole ones ahead of the cut — was thrown away by the except below.
+    Silently: the question then reached the model with no sources at all.
+
+    Measured on the real brain at limit=40, four of six benchmark questions
+    truncate, and 29 to 38 of their rows are whole. At limit=30 — the tuned
+    default — "promised not delivered" came back 64,778 bytes long, 758 bytes
+    under the cliff. This was never only a wide-retrieval problem; the
+    default path has been one long email away from it all along.
+
+    Decoding object by object keeps whatever made it across. A partial leg
+    ranked against the others is a normal day; an empty one is a question
+    answered from nothing.
+    """
+    dec = json.JSONDecoder()
+    i = out.find("[")
+    if i < 0:
+        return []
+    i += 1
+    rows: list = []
+    while i < len(out):
+        while i < len(out) and out[i] in ", \t\r\n":
+            i += 1
+        if i >= len(out) or out[i] != "{":
+            break
+        try:
+            obj, i = dec.raw_decode(out, i)
+        except ValueError:
+            break
+        rows.append(obj)
+    return rows
+
+
+# Rows to ask gbrain for in one call. Past this the reply runs into the
+# 65,536-byte truncation described in `_salvage`, so the extra rows are
+# computed, serialised and then cut off — paid for and never delivered.
+DEEP_MAX = 40
+
+
 def _search_once(gb: str, query: str, limit: int) -> list:
     try:
-        out = subprocess.run(
+        # Bytes, decoded leniently here — NOT text=True. The cut described
+        # in `_salvage` lands wherever it lands, and when that is
+        # the middle of a “ or an em dash, `text=True` raises
+        # UnicodeDecodeError from inside subprocess.run. That is a ValueError,
+        # not an OSError, so it escaped every handler on this path and took
+        # the whole question down with it — the "never returned at all"
+        # symptom, from one email with a curly quote in the wrong place.
+        raw = subprocess.run(
             [gb, "call", "search", json.dumps({"query": query, "limit": limit})],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, timeout=30,
             cwd=str(BRAIN_DIR if BRAIN_DIR.is_dir() else Path.home()),
             env=_env(),
         ).stdout
-        rows = json.loads(out or "[]")
-    except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
+        out = (raw or b"").decode("utf-8", errors="replace")
+    except (OSError, subprocess.SubprocessError):
         return []
+    try:
+        rows = json.loads(out or "[]")
+    except json.JSONDecodeError:
+        return _salvage(out)
     return rows if isinstance(rows, list) else []
 
 
@@ -188,7 +252,12 @@ def search_profiled(question: str, limit: int = 6) -> tuple[list[dict], dict]:
     # never returned, and the page that answers a question about this week is
     # routinely ranked 20th by similarity alone. The extra rows cost nothing —
     # they are the same query, already paid for.
-    deep = max(limit * 5, 30)
+    #
+    # Capped at DEEP_MAX because past it they are not delivered: gbrain cuts
+    # its reply at 65,536 bytes. Asking for 70 or 80 — which limit*5 did for
+    # the wide question kinds — returned a severed array, and every wide
+    # question reached the model with an empty sources block.
+    deep = min(max(limit * 5, 30), DEEP_MAX)
     t = time.time()
     runs = [_search_once(gb, terms, deep)]
     clock["vector_terms"] = round(time.time() - t, 3)
@@ -946,7 +1015,14 @@ def _sources_block(hits: list[dict], action: bool = False) -> str:
              "something new only if the answer is genuinely absent here, and "
              "at most twice; if it is not there, say so rather than widening "
              "the search further:"]
-    for h in hits[:6]:
+    # Every page retrieved, not the first six. qtype.WIDTH asks for sixteen
+    # pages for a timeline and fourteen for a "did we ever" precisely because
+    # six cannot hold the answer — and then this line handed over six anyway,
+    # so the wide kinds paid for the retrieval and got the narrow prompt. For
+    # a timeline the six were the OLDEST six, the hits having just been sorted
+    # into date order: "catch me up on HKJC since June" was answered from
+    # pages that stopped before June.
+    for h in hits:
         date = f" ({h['date']})" if h.get("date") else ""
         body = h.get("context") or h.get("excerpt") or ""
         lines.append(f"- {h['slug']}{date}: {body}")
